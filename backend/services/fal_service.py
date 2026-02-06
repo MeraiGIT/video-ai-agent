@@ -26,7 +26,7 @@ def generate_image(prompt: str) -> dict:
             "prompt": prompt,
             "image_size": "landscape_16_9",
             "num_images": 1,
-            "enable_safety_checker": True,
+            "enable_safety_checker": False,
         },
         with_logs=True,
         on_queue_update=_on_queue_update,

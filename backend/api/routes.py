@@ -2,6 +2,7 @@ import os
 import uuid
 import json
 import asyncio
+import logging
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
@@ -11,7 +12,8 @@ from agent.graph import graph
 from agent.state import VideoState
 from agent.session_store import create_session, get_session
 from utils.file_manager import get_job_path
-from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,12 +28,13 @@ async def _run_graph(session_id: str, input_or_command):
     config = {"configurable": {"thread_id": session_id}}
 
     try:
-        async for namespace, chunk in graph.astream(
+        async for chunk in graph.astream(
             input_or_command,
             config=config,
             stream_mode="custom",
         ):
-            await queue.put(chunk)
+            if isinstance(chunk, dict) and "event" in chunk:
+                await queue.put(chunk)
 
         # Check if graph is interrupted (waiting for user input)
         state = await graph.aget_state(config)
@@ -49,6 +52,7 @@ async def _run_graph(session_id: str, input_or_command):
         # (complete event already emitted by add_captions or finish_individual node)
 
     except Exception as e:
+        logger.exception(f"Graph error for session {session_id}")
         await queue.put({
             "event": "error",
             "data": {"message": str(e)},
@@ -123,6 +127,10 @@ async def stream_events(request: Request, session_id: str):
 
                 if item is None:
                     break
+
+                # Skip any non-dict items (safety check)
+                if not isinstance(item, dict):
+                    continue
 
                 # Events from nodes have {event, data} structure
                 event_type = item.get("event", "message")

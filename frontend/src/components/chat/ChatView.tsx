@@ -58,7 +58,7 @@ export default function ChatView({
       case "scenes":
         return (
           <SceneCards
-            scenes={data.scenes as { scene_number: number; narration: string; visual_description: string; image_prompt: string; duration: number }[]}
+            scenes={data.content as { scene_number: number; narration: string; visual_description: string; image_prompt: string; duration: number }[]}
             totalDuration={data.total_duration as number}
           />
         );
