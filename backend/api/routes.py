@@ -3,11 +3,14 @@ import uuid
 import json
 import asyncio
 import logging
-from fastapi import APIRouter, HTTPException, Request
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
-from api.schemas import CreateSessionRequest, CreateSessionResponse, ResumeRequest
+from api.schemas import (
+    CreateSessionRequest, CreateSessionResponse, ResumeRequest, UploadResponse,
+)
 from agent.graph import graph
 from agent.state import VideoState
 from agent.session_store import create_session, get_session
@@ -16,6 +19,12 @@ from utils.file_manager import get_job_path
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+ALLOWED_UPLOAD_TYPES = {
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "video/mp4", "video/quicktime", "video/webm",
+}
 
 
 async def _run_graph(session_id: str, input_or_command):
@@ -49,7 +58,6 @@ async def _run_graph(session_id: str, input_or_command):
                     return
 
         # Graph completed without interrupt
-        # (complete event already emitted by add_captions or finish_individual node)
 
     except Exception as e:
         logger.exception(f"Graph error for session {session_id}")
@@ -71,7 +79,7 @@ async def create_new_session(body: CreateSessionRequest):
         concat_enabled=body.concat_enabled,
     )
 
-    # Build initial state and start graph
+    # Build initial state
     initial_state: VideoState = {
         "job_id": session_id,
         "input_topic": body.topic,
@@ -80,9 +88,74 @@ async def create_new_session(body: CreateSessionRequest):
         "progress_messages": [],
     }
 
+    # Pass uploaded file URLs into state if provided
+    if body.uploaded_file_urls:
+        initial_state["uploaded_files"] = [
+            {"url": url, "type": _guess_type(url), "filename": url.rsplit("/", 1)[-1]}
+            for url in body.uploaded_file_urls
+        ]
+
     asyncio.create_task(_run_graph(session_id, initial_state))
 
     return CreateSessionResponse(session_id=session_id)
+
+
+def _guess_type(url: str) -> str:
+    """Guess MIME type from URL extension."""
+    ext = url.rsplit(".", 1)[-1].lower() if "." in url else ""
+    return {
+        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "webp": "image/webp", "gif": "image/gif",
+        "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
+    }.get(ext, "application/octet-stream")
+
+
+@router.post("/api/sessions/{session_id}/upload", response_model=UploadResponse)
+async def upload_file(session_id: str, file: UploadFile = File(...)):
+    """Upload a file (image or video) to a session workspace."""
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Validate content type
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_UPLOAD_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {content_type}. Allowed: images and videos.",
+        )
+
+    # Read and validate size
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+
+    # Sanitize filename
+    original_name = file.filename or "upload"
+    safe_name = "".join(
+        c for c in original_name if c.isalnum() or c in "._-"
+    ).strip() or "upload"
+
+    # Save to workspace
+    upload_dir = Path(get_job_path(session_id, "")) / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # Avoid collisions
+    dest = upload_dir / safe_name
+    if dest.exists():
+        stem, ext = safe_name.rsplit(".", 1) if "." in safe_name else (safe_name, "")
+        safe_name = f"{stem}_{uuid.uuid4().hex[:6]}.{ext}" if ext else f"{safe_name}_{uuid.uuid4().hex[:6]}"
+        dest = upload_dir / safe_name
+
+    dest.write_bytes(contents)
+
+    file_url = f"/api/media/{session_id}/uploads/{safe_name}"
+
+    return UploadResponse(
+        file_url=file_url,
+        file_type=content_type,
+        filename=safe_name,
+    )
 
 
 @router.post("/api/sessions/{session_id}/resume")
@@ -146,11 +219,11 @@ async def stream_events(request: Request, session_id: str):
     return EventSourceResponse(event_generator())
 
 
-@router.get("/api/media/{session_id}/{filename}")
+@router.get("/api/media/{session_id}/{filename:path}")
 async def serve_media(session_id: str, filename: str):
-    """Serve any media file (images, videos, audio) from a session workspace."""
+    """Serve any media file (images, videos, audio, uploads) from a session workspace."""
     # Security: prevent path traversal
-    if ".." in filename or "/" in filename or ".." in session_id:
+    if ".." in filename or ".." in session_id:
         raise HTTPException(status_code=400, detail="Invalid path")
 
     file_path = get_job_path(session_id, filename)
@@ -163,9 +236,12 @@ async def serve_media(session_id: str, filename: str):
         "png": "image/png",
         "jpg": "image/jpeg",
         "jpeg": "image/jpeg",
+        "webp": "image/webp",
         "mp4": "video/mp4",
         "mp3": "audio/mpeg",
         "srt": "text/plain",
+        "gif": "image/gif",
+        "mov": "video/quicktime",
     }
     media_type = media_types.get(ext, "application/octet-stream")
 

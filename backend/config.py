@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
     FAL_KEY: str
     ELEVENLABS_API_KEY: str
+    KIE_AI_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "JBFqnCBsd6RMkjVDRZzb"
     WHISPER_MODEL_SIZE: str = "base"
     WORK_DIR: str = os.path.join(os.path.dirname(__file__), "workspace")

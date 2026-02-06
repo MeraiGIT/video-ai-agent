@@ -12,7 +12,8 @@ def generate(state: VideoState) -> dict:
         "data": {"stage": "script", "message": "Writing script with Claude..."},
     })
 
-    script = generate_script(state["input_topic"])
+    character_context = state.get("character_description", "")
+    script = generate_script(state["input_topic"], character_context=character_context)
     word_count = len(script.split())
 
     writer({

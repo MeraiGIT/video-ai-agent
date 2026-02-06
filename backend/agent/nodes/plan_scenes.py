@@ -16,7 +16,8 @@ def generate(state: VideoState) -> dict:
         "data": {"stage": "scenes", "message": "Planning scenes with Claude..."},
     })
 
-    scenes = plan_scenes_from_script(state["script"])
+    character_desc = state.get("character_description", "")
+    scenes = plan_scenes_from_script(state["script"], character_description=character_desc)
     total_duration = sum(s["duration"] for s in scenes)
 
     writer({

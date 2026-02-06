@@ -1,24 +1,33 @@
 from langgraph.config import get_stream_writer
-from services.fal_service import generate_image
-from utils.file_manager import download_file
+from services.video_router import generate_image_for_scene
 from agent.state import VideoState
 
 
 def generate(state: VideoState) -> dict:
-    """Generate images for each scene. Skips scenes that already have images."""
+    """Generate images for each scene. Skips scenes that already have images.
+
+    Supports reference images: if the user uploaded photos, uses FLUX dev
+    image-to-image to preserve the subject while adapting to each scene.
+    """
     writer = get_stream_writer()
     scenes = [dict(s) for s in state["scenes"]]  # deep copy to avoid mutation
     job_id = state["job_id"]
 
+    # Reference image for character consistency (first uploaded image)
+    reference_images = state.get("reference_images", [])
+    ref_url = reference_images[0] if reference_images else None
+
     # Determine which scenes need images
     to_generate = [i for i, s in enumerate(scenes) if not s.get("image_url")]
+
+    gen_method = "FLUX Dev (reference)" if ref_url else "Seedream 4.5"
 
     if len(to_generate) == len(scenes):
         writer({
             "event": "message",
             "data": {
                 "role": "assistant",
-                "content": f"Generating {len(scenes)} images with Seedream 4.5...",
+                "content": f"Generating {len(scenes)} images with {gen_method}...",
             },
         })
     elif to_generate:
@@ -42,12 +51,14 @@ def generate(state: VideoState) -> dict:
             },
         })
 
-        result = generate_image(scene["image_prompt"])
-        image_url = result["images"][0]["url"]
-        scene["image_url"] = image_url
-        scene["image_local_path"] = download_file(
-            image_url, job_id, f"scene_{i + 1}.png"
+        image_url, local_path = generate_image_for_scene(
+            prompt=scene["image_prompt"],
+            job_id=job_id,
+            filename=f"scene_{i + 1}.png",
+            reference_image_url=ref_url,
         )
+        scene["image_url"] = image_url
+        scene["image_local_path"] = local_path
 
         writer({
             "event": "artifact",

@@ -30,8 +30,19 @@ def modify_script(current_script: str, user_request: str) -> str:
     return response.content[0].text.strip()
 
 
-def modify_scenes(current_scenes: list[dict], user_request: str) -> list[dict]:
+def modify_scenes(
+    current_scenes: list[dict],
+    user_request: str,
+    character_description: str = "",
+) -> list[dict]:
     """Revise scene plan based on user feedback. Returns updated scenes list."""
+    char_note = ""
+    if character_description:
+        char_note = (
+            f"\n\nIMPORTANT: Maintain character consistency. The character is: "
+            f"{character_description}. Include this description in every image_prompt."
+        )
+
     response = client.messages.create(
         model=MODEL,
         max_tokens=4096,
@@ -45,7 +56,7 @@ def modify_scenes(current_scenes: list[dict], user_request: str) -> list[dict]:
                 "role": "user",
                 "content": (
                     f"Current scenes:\n\n{json.dumps(current_scenes, indent=2)}\n\n"
-                    f"Requested changes: {user_request}\n\n"
+                    f"Requested changes: {user_request}{char_note}\n\n"
                     "Return ONLY the complete JSON array of all scenes."
                 ),
             }

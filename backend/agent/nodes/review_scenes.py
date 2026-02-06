@@ -30,7 +30,8 @@ def review(state: VideoState) -> dict:
         "data": {"stage": "scenes", "message": "Revising scenes..."},
     })
 
-    scenes = modify_scenes(state["scenes"], user_msg)
+    character_desc = state.get("character_description", "")
+    scenes = modify_scenes(state["scenes"], user_msg, character_description=character_desc)
     total_duration = sum(s["duration"] for s in scenes)
 
     writer({

@@ -3,16 +3,22 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export async function createSession(
   topic: string,
   videoModel: string,
-  concatEnabled: boolean
+  concatEnabled: boolean,
+  uploadedFileUrls?: string[]
 ): Promise<string> {
+  const body: Record<string, unknown> = {
+    topic,
+    video_model: videoModel,
+    concat_enabled: concatEnabled,
+  };
+  if (uploadedFileUrls && uploadedFileUrls.length > 0) {
+    body.uploaded_file_urls = uploadedFileUrls;
+  }
+
   const res = await fetch(`${API_BASE}/api/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      topic,
-      video_model: videoModel,
-      concat_enabled: concatEnabled,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
   const data = await res.json();
@@ -30,6 +36,21 @@ export async function resumeSession(
     body: JSON.stringify({ action, payload }),
   });
   if (!res.ok) throw new Error(`Resume failed: ${res.status}`);
+}
+
+export async function uploadFile(
+  sessionId: string,
+  file: File
+): Promise<{ file_url: string; file_type: string; filename: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return res.json();
 }
 
 export function getMediaUrl(sessionId: string, filename: string): string {

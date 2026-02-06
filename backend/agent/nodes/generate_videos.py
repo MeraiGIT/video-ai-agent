@@ -1,22 +1,24 @@
 from langgraph.config import get_stream_writer
-from services.fal_service import generate_image, generate_video
-from utils.file_manager import download_file
+from services.video_router import generate_video, generate_image_for_scene
+from services.model_registry import get_video_model
 from agent.state import VideoState
-
-MODEL_DISPLAY_NAMES = {
-    "seedance": "Seedance 1.5 Pro",
-    "veo": "Google Veo 3.1",
-    "kling": "Kling 3.0",
-}
 
 
 def generate(state: VideoState) -> dict:
-    """Generate videos for each scene. Skips scenes that already have videos."""
+    """Generate videos for each scene. Skips scenes that already have videos.
+
+    Routes through video_router which picks the correct provider (fal.ai or Kie AI).
+    For kling_ref model, passes reference images for character consistency.
+    """
     writer = get_stream_writer()
     scenes = [dict(s) for s in state["scenes"]]
-    model = state["video_model"]
+    model_id = state["video_model"]
     job_id = state["job_id"]
-    display_name = MODEL_DISPLAY_NAMES.get(model, model)
+
+    model_info = get_video_model(model_id)
+    display_name = model_info["name"]
+
+    reference_images = state.get("reference_images", [])
 
     # Determine which scenes need videos
     to_generate = [i for i, s in enumerate(scenes) if not s.get("video_local_path")]
@@ -55,23 +57,26 @@ def generate(state: VideoState) -> dict:
 
         # If scene lost its image (from regeneration), regenerate image first
         if not scene.get("image_url"):
-            img_result = generate_image(scene["image_prompt"])
-            scene["image_url"] = img_result["images"][0]["url"]
-            scene["image_local_path"] = download_file(
-                scene["image_url"], job_id, f"scene_{i + 1}.png"
+            ref_url = reference_images[0] if reference_images else None
+            image_url, local_path = generate_image_for_scene(
+                prompt=scene["image_prompt"],
+                job_id=job_id,
+                filename=f"scene_{i + 1}.png",
+                reference_image_url=ref_url,
             )
+            scene["image_url"] = image_url
+            scene["image_local_path"] = local_path
 
-        result = generate_video(
-            model=model,
+        local_path = generate_video(
+            model_id=model_id,
             image_url=scene["image_url"],
             prompt=f"Cinematic motion, {scene['visual_description']}",
             duration=scene["duration"],
+            job_id=job_id,
+            filename=f"scene_{i + 1}.mp4",
+            reference_images=reference_images if reference_images else None,
         )
-
-        video_url = result["video"]["url"]
-        scene["video_local_path"] = download_file(
-            video_url, job_id, f"scene_{i + 1}.mp4"
-        )
+        scene["video_local_path"] = local_path
 
         writer({
             "event": "artifact",

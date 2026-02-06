@@ -98,7 +98,12 @@ export function useSession() {
   }, []);
 
   const start = useCallback(
-    async (topic: string, model: VideoModel, concatEnabled: boolean) => {
+    async (
+      topic: string,
+      model: VideoModel,
+      concatEnabled: boolean,
+      uploadedFileUrls?: string[]
+    ) => {
       setIsProcessing(true);
       setError(null);
       setChatItems([]);
@@ -106,7 +111,7 @@ export function useSession() {
       setCurrentProgress(null);
 
       try {
-        const sid = await createSession(topic, model, concatEnabled);
+        const sid = await createSession(topic, model, concatEnabled, uploadedFileUrls);
         setSessionId(sid);
         connectSSE(sid);
       } catch (err) {
