@@ -1,0 +1,36 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+
+# Workspace (generated videos/images)
+workspace/
+
+# Node
+node_modules/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Session files
+*.session
+
+# Screenshots and test artifacts
+*.png
+*.jpeg
+*.jpg
+.playwright-mcp/
+TESTING_GUIDE.md
