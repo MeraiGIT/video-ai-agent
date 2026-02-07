@@ -1,17 +1,42 @@
+import shutil
 import subprocess
 from utils.file_manager import get_job_path
 
 
-def _run_ffmpeg(cmd: list[str]):
+def check_ffmpeg_available() -> tuple[bool, str]:
+    """Check if FFmpeg is installed and return (available, version_string)."""
+    path = shutil.which("ffmpeg")
+    if not path:
+        return False, ""
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"], capture_output=True, text=True, timeout=5
+        )
+        version_line = result.stdout.split("\n")[0] if result.stdout else "unknown"
+        return True, version_line
+    except Exception:
+        return False, ""
+
+
+def _run_ffmpeg(cmd: list[str], operation: str = ""):
     """Run an FFmpeg command and raise on failure."""
+    available, _ = check_ffmpeg_available()
+    if not available:
+        raise RuntimeError(
+            "FFmpeg is not installed or not found in PATH. "
+            "Install it with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"
+        )
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
+        context = f" during {operation}" if operation else ""
+        stderr_lines = result.stderr.strip().split("\n")[-5:]
         raise RuntimeError(
-            f"FFmpeg failed (exit {result.returncode}):\n{result.stderr}"
+            f"FFmpeg failed{context} (exit {result.returncode}):\n"
+            + "\n".join(stderr_lines)
         )
 
 
@@ -54,7 +79,7 @@ def concat_videos(video_paths: list[str], job_id: str) -> str:
             output_path,
         ]
     )
-    _run_ffmpeg(cmd)
+    _run_ffmpeg(cmd, operation="video concatenation")
     return output_path
 
 
@@ -83,7 +108,7 @@ def overlay_audio(
         "-shortest",
         output_path,
     ]
-    _run_ffmpeg(cmd)
+    _run_ffmpeg(cmd, operation="audio overlay")
     return output_path
 
 
@@ -124,5 +149,5 @@ def burn_subtitles(
         "copy",
         output_path,
     ]
-    _run_ffmpeg(cmd)
+    _run_ffmpeg(cmd, operation="subtitle burning")
     return output_path

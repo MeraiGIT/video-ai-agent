@@ -1,5 +1,6 @@
 from langgraph.config import get_stream_writer
 from services.elevenlabs_service import generate_tts
+from services import supabase_service
 from agent.state import VideoState
 
 
@@ -41,6 +42,21 @@ def generate(state: VideoState) -> dict:
             ),
         },
     })
+
+    # Upload voiceover to Supabase Storage
+    project_id = state.get("project_id")
+    if project_id:
+        storage_path = f"{project_id}/voiceover.mp3"
+        public_url = supabase_service.upload_file(
+            voiceover_path, storage_path, content_type="audio/mpeg"
+        )
+        supabase_service.create_media_record(
+            project_id=project_id,
+            media_type="voiceover",
+            public_url=public_url,
+            storage_path=storage_path,
+            filename="voiceover.mp3",
+        )
 
     return {
         "voiceover_path": voiceover_path,

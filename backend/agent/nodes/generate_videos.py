@@ -1,6 +1,7 @@
 from langgraph.config import get_stream_writer
 from services.video_router import generate_video, generate_image_for_scene
 from services.model_registry import get_video_model
+from services import supabase_service
 from agent.state import VideoState
 
 
@@ -77,6 +78,22 @@ def generate(state: VideoState) -> dict:
             reference_images=reference_images if reference_images else None,
         )
         scene["video_local_path"] = local_path
+
+        # Upload video to Supabase Storage (local files auto-delete after 2h)
+        project_id = state.get("project_id")
+        if project_id:
+            storage_path = f"{project_id}/scene_{i + 1}.mp4"
+            public_url = supabase_service.upload_file(
+                local_path, storage_path, content_type="video/mp4"
+            )
+            supabase_service.create_media_record(
+                project_id=project_id,
+                media_type="video",
+                public_url=public_url,
+                storage_path=storage_path,
+                filename=f"scene_{i + 1}.mp4",
+                scene_number=i + 1,
+            )
 
         writer({
             "event": "artifact",

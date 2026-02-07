@@ -1,5 +1,6 @@
 from langgraph.config import get_stream_writer
 from services.video_router import generate_image_for_scene
+from services import supabase_service
 from agent.state import VideoState
 
 
@@ -59,6 +60,20 @@ def generate(state: VideoState) -> dict:
         )
         scene["image_url"] = image_url
         scene["image_local_path"] = local_path
+
+        # Save image to Supabase (fal.ai CDN URLs are permanent, no upload needed)
+        project_id = state.get("project_id")
+        if project_id:
+            supabase_service.create_media_record(
+                project_id=project_id,
+                media_type="image",
+                public_url=image_url,
+                filename=f"scene_{i + 1}.png",
+                scene_number=i + 1,
+            )
+            # First image becomes the project thumbnail
+            if idx == 0:
+                supabase_service.update_project(project_id, {"thumbnail_url": image_url})
 
         writer({
             "event": "artifact",

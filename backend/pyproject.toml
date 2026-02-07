@@ -17,6 +17,7 @@ dependencies = [
     "tenacity>=8.0.0",
     "python-multipart>=0.0.20",
     "requests>=2.31.0",
+    "supabase>=2.0.0",
 ]
 
 [tool.setuptools]

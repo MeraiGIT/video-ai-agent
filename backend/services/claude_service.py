@@ -169,7 +169,8 @@ Return ONLY this JSON:
   "character_description": "Concise visual description of the main character, or empty string if none",
   "recommended_video_model": "model_id",
   "use_reference_images": true/false,
-  "reasoning": "Brief explanation of your recommendations"
+  "reasoning": "Brief explanation of your recommendations",
+  "project_name": "Short catchy folder name for this project (2-5 words, Title Case, e.g. 'Better Sleep Tips', 'AI Healthcare Revolution')"
 }}""",
             }
         ],

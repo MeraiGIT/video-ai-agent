@@ -1,5 +1,6 @@
 from langgraph.config import get_stream_writer
 from services.claude_service import generate_script
+from services import supabase_service
 from agent.state import VideoState
 
 
@@ -30,6 +31,16 @@ def generate(state: VideoState) -> dict:
             ),
         },
     })
+
+    # Save script to Supabase
+    project_id = state.get("project_id")
+    if project_id:
+        supabase_service.create_media_record(
+            project_id=project_id,
+            media_type="script",
+            filename="script.txt",
+            metadata={"content": script, "word_count": word_count},
+        )
 
     return {
         "script": script,

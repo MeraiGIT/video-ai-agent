@@ -32,7 +32,12 @@ class VideoState(TypedDict):
     scenes: NotRequired[list[Scene]]
     voiceover_path: NotRequired[str]
     assembled_video_path: NotRequired[str]
+    captions_srt_path: NotRequired[str]
     final_video_path: NotRequired[str]
+
+    # Supabase persistence
+    project_id: NotRequired[str]
+    project_name: NotRequired[str]
 
     # Tracking
     status: NotRequired[str]

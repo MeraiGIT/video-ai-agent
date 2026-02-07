@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import time
 from contextlib import asynccontextmanager
@@ -8,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
 from config import settings
+from services.ffmpeg_service import check_ffmpeg_available
+
+logger = logging.getLogger(__name__)
 
 
 async def _cleanup_old_jobs():
@@ -29,6 +33,15 @@ async def _cleanup_old_jobs():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Check FFmpeg availability
+    ffmpeg_ok, ffmpeg_version = check_ffmpeg_available()
+    if ffmpeg_ok:
+        logger.info(f"FFmpeg found: {ffmpeg_version}")
+    else:
+        logger.warning(
+            "FFmpeg not found! Video assembly and captions will not work. "
+            "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"
+        )
     # Ensure workspace directory exists
     os.makedirs(settings.WORK_DIR, exist_ok=True)
     # Start cleanup task

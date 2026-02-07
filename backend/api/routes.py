@@ -14,6 +14,7 @@ from api.schemas import (
 from agent.graph import graph
 from agent.state import VideoState
 from agent.session_store import create_session, get_session
+from services import supabase_service
 from utils.file_manager import get_job_path
 
 logger = logging.getLogger(__name__)
@@ -246,3 +247,40 @@ async def serve_media(session_id: str, filename: str):
     media_type = media_types.get(ext, "application/octet-stream")
 
     return FileResponse(file_path, media_type=media_type)
+
+
+# ── History Endpoints ─────────────────────────────────────────
+
+
+@router.get("/api/projects")
+async def list_projects():
+    """List all projects (newest first)."""
+    projects = supabase_service.list_projects()
+    return {"projects": projects}
+
+
+@router.get("/api/projects/{project_id}")
+async def get_project(project_id: str):
+    """Get a project with all its media items."""
+    project = supabase_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+@router.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str):
+    """Delete a project and all its media (cascade)."""
+    success = supabase_service.delete_project(project_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Project not found or delete failed")
+    return {"status": "deleted"}
+
+
+@router.delete("/api/media-items/{media_id}")
+async def delete_media_item(media_id: str):
+    """Delete a single media item."""
+    success = supabase_service.delete_media(media_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Media item not found or delete failed")
+    return {"status": "deleted"}

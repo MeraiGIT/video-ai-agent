@@ -60,3 +60,60 @@ export function getMediaUrl(sessionId: string, filename: string): string {
 export function getEventStreamUrl(sessionId: string): string {
   return `${API_BASE}/api/sessions/${sessionId}/events`;
 }
+
+// ── History API ──────────────────────────────────────────────
+
+export interface Project {
+  id: string;
+  name: string;
+  topic: string;
+  video_model: string;
+  concat_enabled: boolean;
+  status: string;
+  thumbnail_url: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface MediaItem {
+  id: string;
+  project_id: string;
+  type: "image" | "video" | "voiceover" | "final_video" | "script";
+  storage_path: string | null;
+  public_url: string | null;
+  filename: string | null;
+  scene_number: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProjectWithMedia extends Project {
+  media: MediaItem[];
+}
+
+export async function getProjects(): Promise<Project[]> {
+  const res = await fetch(`${API_BASE}/api/projects`);
+  if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
+  const data = await res.json();
+  return data.projects;
+}
+
+export async function getProject(projectId: string): Promise<ProjectWithMedia> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`);
+  if (!res.ok) throw new Error(`Failed to fetch project: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete project: ${res.status}`);
+}
+
+export async function deleteMediaItem(mediaId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/media-items/${mediaId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete media: ${res.status}`);
+}

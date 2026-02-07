@@ -1,4 +1,5 @@
 from langgraph.config import get_stream_writer
+from services import supabase_service
 from agent.state import VideoState
 
 
@@ -28,6 +29,14 @@ def run(state: VideoState) -> dict:
         "event": "complete",
         "data": {"type": "individual", "urls": urls},
     })
+
+    # Mark project complete in Supabase
+    project_id = state.get("project_id")
+    if project_id:
+        supabase_service.update_project(project_id, {
+            "status": "completed",
+            "completed_at": "now()",
+        })
 
     return {
         "status": "completed",

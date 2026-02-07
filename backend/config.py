@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     WHISPER_MODEL_SIZE: str = "base"
     WORK_DIR: str = os.path.join(os.path.dirname(__file__), "workspace")
 
+    # Supabase (optional — history features disabled if not set)
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+
     model_config = {"env_file": ENV_PATH, "env_file_encoding": "utf-8"}
 
 

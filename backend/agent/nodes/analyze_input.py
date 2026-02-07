@@ -2,6 +2,7 @@ import logging
 from langgraph.config import get_stream_writer
 from services.claude_service import analyze_user_request
 from services.model_registry import get_video_model, get_model_description_for_llm
+from services import supabase_service
 from agent.state import VideoState
 
 logger = logging.getLogger(__name__)
@@ -107,12 +108,25 @@ def run(state: VideoState) -> dict:
         "data": {"role": "assistant", "content": summary},
     })
 
+    # Create Supabase project for history tracking
+    project_name = plan.get("project_name", topic[:50])
+    project_record = supabase_service.create_project(
+        name=project_name,
+        topic=topic,
+        video_model=state["video_model"],
+        concat_enabled=state.get("concat_enabled", True),
+    )
+
     result = {
         "input_topic": topic,
         "generation_plan": plan,
+        "project_name": project_name,
         "status": "input_analyzed",
         "progress_messages": [f"Topic: {topic[:80]}"],
     }
+
+    if project_record:
+        result["project_id"] = project_record["id"]
 
     if character_desc:
         result["character_description"] = character_desc
