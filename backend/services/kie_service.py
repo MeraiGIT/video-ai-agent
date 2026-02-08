@@ -95,8 +95,12 @@ def _poll_veo3(task_id: str, timeout: int = 600, interval: int = 5) -> str:
         flag = record.get("successFlag", 0)
 
         if flag == 1:
-            # Success — parse result URLs
-            urls_raw = record.get("resultUrls", "[]")
+            # Success — parse result URLs (may be at top level or nested in "response")
+            urls_raw = record.get("resultUrls") or (
+                record.get("response", {}) or {}
+            ).get("resultUrls")
+            if urls_raw is None:
+                urls_raw = "[]"
             urls = json.loads(urls_raw) if isinstance(urls_raw, str) else urls_raw
             if urls:
                 logger.info(f"[kie/veo3] Task {task_id} completed")
