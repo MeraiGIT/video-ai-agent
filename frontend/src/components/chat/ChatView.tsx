@@ -10,6 +10,7 @@ import VoiceoverPlayer from "@/components/artifacts/VoiceoverPlayer";
 import FinalVideo from "@/components/artifacts/FinalVideo";
 import CreativeBriefCard from "@/components/artifacts/CreativeBriefCard";
 import BudgetSelector from "@/components/artifacts/BudgetSelector";
+import BlueprintViewer from "@/components/artifacts/BlueprintViewer";
 import ProgressIndicator from "@/components/artifacts/ProgressIndicator";
 import InputBar from "@/components/input/InputBar";
 
@@ -145,6 +146,13 @@ export default function ChatView({
         return (
           <CreativeBriefCard
             brief={data.brief as Record<string, unknown>}
+          />
+        );
+
+      case "blueprint":
+        return (
+          <BlueprintViewer
+            blueprint={data.blueprint as Record<string, unknown>}
           />
         );
 

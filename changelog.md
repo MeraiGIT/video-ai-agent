@@ -44,6 +44,34 @@
 
 ---
 
+## [Phase 3] — Blueprint + Production Executor — 2026-02-09
+
+### Added
+- `backend/agent/prompts/blueprint.py` — Blueprint generation prompt: transforms creative direction into detailed execution specs with model-specific prompting
+- `backend/agent/prompts/quality_gate.py` — Two prompts: Gemini vision evaluation criteria (image/video/audio) + Claude prompt optimization
+- `backend/agent/nodes/blueprint.py` — Blueprint node: Claude generates freeform execution blueprint from creative brief + production plan
+- `backend/agent/nodes/review_blueprint.py` — Blueprint review: interrupt() for user approval, initializes production state
+- `backend/agent/nodes/produce.py` — Core production executor (~340 lines): walks production plan, calls capabilities via registry, batch parallel execution (ThreadPoolExecutor), stores results in state, tracks costs, emits SSE artifacts
+- `backend/agent/nodes/quality_gate.py` — Quality gate (~300 lines): Gemini vision scores assets 1-10, auto-retry with Claude-optimized prompts up to 3x, escalation on max retries
+- `backend/agent/nodes/review_stage.py` — Stage review: interrupt() at stage boundaries, shows production summary with quality scores and costs
+- 20 capability functions in `backend/agent/capabilities/`:
+  - **Generation**: image_gen, video_gen, voiceover, voice_select, music_gen, sfx_gen, face_reference, first_last_frame
+  - **Processing**: audio_mix, video_concat, audio_overlay, caption_burn, text_overlay, image_composite, transcribe
+  - **Analysis**: analyze_image, analyze_video, analyze_audio, analyze_video_reference, web_search
+- `frontend/src/components/artifacts/BlueprintViewer.tsx` — Dynamic blueprint renderer: specialized UI for scenes, audio map, style guide; collapsible JSON for unknown sections
+
+### Changed
+- `frontend/src/components/chat/ChatView.tsx` — Added blueprint artifact rendering
+
+### Tested
+- Backend: Graph compiles (17 nodes), all 20 capabilities import with execute() functions
+- Registry lazy loading works (get_capability_function → importlib)
+- Frontend: `npm run build` passes with zero errors
+- Blueprint prompt builds correctly with model context injection
+- Quality gate prompts generate evaluation criteria for image/video/audio types
+
+---
+
 ## [Phase 2] — Research + Creative Direction — 2026-02-09
 
 ### Added
