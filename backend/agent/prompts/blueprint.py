@@ -120,5 +120,23 @@ Return a JSON object. Example structure (adapt freely):
   }}
 }}
 
+LONG-FORM CONTENT (>5 minutes):
+If the project's estimated duration exceeds 5 minutes, you MUST divide it into chapters.
+Each chapter should be ~5 minutes or less. Add a "chapters" array to the blueprint:
+{{
+  "chapters": [
+    {{
+      "chapter_number": 1,
+      "title": "Chapter title",
+      "duration_estimate": 300,
+      "scenes": [/* scenes for this chapter */],
+      "audio_map": {{/* audio for this chapter */}},
+      "continuity_notes": "Notes for maintaining consistency with next chapter"
+    }}
+  ]
+}}
+The production executor will process one chapter at a time. Include continuity_notes
+so that style, characters, and narrative flow seamlessly between chapters.
+
 Adapt the structure to match this specific project. Not all sections are needed for
 every project type — include only what's relevant."""

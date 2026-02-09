@@ -24,8 +24,29 @@ def run(state: ProductionState) -> dict:
     writer = get_stream_writer()
     plan = state.get("production_plan", [])
     stage_idx = state.get("current_stage_index", 0)
+    total_chunks = state.get("total_chunks", 1)
+    current_chunk = state.get("current_chunk", 0)
 
     if stage_idx >= len(plan):
+        # Check if there are more chunks to process
+        if total_chunks > 1 and current_chunk < total_chunks - 1:
+            next_chunk = current_chunk + 1
+            logger.info("Chunk %d/%d complete, moving to chunk %d", current_chunk + 1, total_chunks, next_chunk + 1)
+            writer({
+                "event": "progress",
+                "data": {
+                    "stage": "producing",
+                    "message": f"Chapter {current_chunk + 1} complete! Moving to chapter {next_chunk + 1} of {total_chunks}...",
+                },
+            })
+            # Reset stage index for next chunk, advance chunk counter
+            return {
+                "current_chunk": next_chunk,
+                "current_stage_index": 0,
+                "status": "chunk_complete",
+                "progress_messages": [f"Chapter {current_chunk + 1}/{total_chunks} complete"],
+            }
+
         logger.info("All production steps complete")
         return {
             "status": "all_stages_complete",
@@ -77,16 +98,19 @@ def run(state: ProductionState) -> dict:
             "progress_messages": [f"Skipped unknown capability: {capability_id}"],
         }
 
-    # Build execution context
+    # Build execution context — chunk-aware blueprint
     blueprint = state.get("blueprint", {})
+    chunk_blueprint = _get_chunk_blueprint(blueprint, current_chunk, total_chunks)
     ctx = {
-        "blueprint": blueprint,
+        "blueprint": chunk_blueprint,
         "creative_brief": state.get("creative_brief", {}),
         "stage_index": stage_idx,
+        "current_chunk": current_chunk,
+        "total_chunks": total_chunks,
     }
 
-    # Enrich params from blueprint (e.g., scene prompts)
-    params = _enrich_params_from_blueprint(params, blueprint, stage_idx, capability_id)
+    # Enrich params from blueprint (e.g., scene prompts) — uses chunk-aware blueprint
+    params = _enrich_params_from_blueprint(params, chunk_blueprint, stage_idx, capability_id)
 
     # Execute — batch or single
     results = []
@@ -234,6 +258,32 @@ def _enrich_params_from_blueprint(params, blueprint, stage_idx, capability_id):
             params["text"] = vo["full_script"]
 
     return params
+
+
+def _get_chunk_blueprint(blueprint: dict, current_chunk: int, total_chunks: int) -> dict:
+    """Get the blueprint for the current chunk (chapter).
+
+    For single-chunk projects, returns the full blueprint unchanged.
+    For multi-chunk, returns a modified blueprint with only the current chapter's
+    scenes and audio_map, plus continuity notes from previous chapters.
+    """
+    if total_chunks <= 1:
+        return blueprint
+
+    chapters = blueprint.get("chapters", [])
+    if current_chunk >= len(chapters):
+        return blueprint
+
+    chapter = chapters[current_chunk]
+    # Build a chunk-specific blueprint by merging chapter data with top-level style
+    chunk_bp = dict(blueprint)
+    chunk_bp["scenes"] = chapter.get("scenes", [])
+    chunk_bp["audio_map"] = chapter.get("audio_map", blueprint.get("audio_map", {}))
+    chunk_bp["_chapter_title"] = chapter.get("title", f"Chapter {current_chunk + 1}")
+    chunk_bp["_continuity_notes"] = chapter.get("continuity_notes", "")
+    chunk_bp["_chapter_number"] = current_chunk + 1
+    chunk_bp["_total_chapters"] = total_chunks
+    return chunk_bp
 
 
 def _store_results(results, output_type, capability_id, state, stage_idx, writer):

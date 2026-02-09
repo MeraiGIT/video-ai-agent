@@ -93,10 +93,20 @@ def run(state: ProductionState) -> dict:
         "data": {"role": "assistant", "content": "\n\n".join(msg_parts)},
     })
 
+    # Detect long-form chapters for chunked processing
+    chapters = blueprint.get("chapters", [])
+    total_chunks = len(chapters) if chapters else 1
+    chunk_info = ""
+    if total_chunks > 1:
+        chunk_info = f", {total_chunks} chapters (long-form)"
+        msg_parts.append(f"{total_chunks} chapters — will process one at a time")
+
     return {
         "blueprint": blueprint,
+        "total_chunks": total_chunks,
+        "current_chunk": 0,
         "status": "blueprint_generated",
         "progress_messages": [
-            f"Blueprint: {title} ({step_count} steps, {scene_count} scenes)"
+            f"Blueprint: {title} ({step_count} steps, {scene_count} scenes{chunk_info})"
         ],
     }

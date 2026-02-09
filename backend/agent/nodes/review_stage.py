@@ -45,7 +45,14 @@ def run(state: ProductionState) -> dict:
     else:
         quality_msg = ""
 
-    content = f"**Production complete!** Generated {summary}."
+    # Chunk progress info
+    total_chunks = state.get("total_chunks", 1)
+    current_chunk = state.get("current_chunk", 0)
+    chunk_msg = ""
+    if total_chunks > 1:
+        chunk_msg = f"\n**Chapter {current_chunk + 1} of {total_chunks}**"
+
+    content = f"**Production complete!** Generated {summary}.{chunk_msg}"
     if quality_msg:
         content += f"\n{quality_msg}"
     content += f"\nTotal cost so far: ${total_cost:.2f}"
@@ -53,6 +60,8 @@ def run(state: ProductionState) -> dict:
     if stage_idx < len(plan):
         remaining = len(plan) - stage_idx
         content += f"\n\n{remaining} more steps remaining."
+    elif total_chunks > 1 and current_chunk < total_chunks - 1:
+        content += f"\n\n{total_chunks - current_chunk - 1} chapters remaining."
     else:
         content += "\n\nAll production steps are complete."
 

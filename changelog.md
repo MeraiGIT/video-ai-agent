@@ -44,6 +44,29 @@
 
 ---
 
+## [Phase 6] — Long-Form Chunking — 2026-02-09
+
+### Added
+- `frontend/src/components/artifacts/ChunkProgress.tsx` — NEW: Chapter progress indicator with dot visualization, animated current chapter, indigo styling
+
+### Changed
+- `backend/agent/prompts/blueprint.py` — Added long-form chunking guidelines: for content >5 min, blueprint must include `chapters` array with ~5-min segments, continuity notes between chapters
+- `backend/agent/nodes/blueprint.py` — Detects chapters in generated blueprint, sets `total_chunks` and `current_chunk` in state
+- `backend/agent/nodes/produce.py` — Chunk-aware execution: `_get_chunk_blueprint()` extracts current chapter's scenes/audio from blueprint, resets stage index between chunks, processes one chapter at a time
+- `backend/agent/nodes/review_stage.py` — Shows chapter progress (e.g., "Chapter 2 of 5") and remaining chapters count when processing long-form content
+
+### Technical Details
+- Long-form threshold: estimated duration > 5 minutes
+- Chapter size: ~5 minutes each
+- Inter-chunk context: continuity_notes, style_guide, and character_sheets carry across chapters
+- Chunk flow: produce all steps for chapter N → review_stage → approve → reset stage_index → advance current_chunk → produce chapter N+1
+
+### Tested
+- Backend: Graph compiles (17 nodes), `_get_chunk_blueprint` helper works, all modified nodes import
+- Frontend: `npm run build` passes with zero errors, ChunkProgress component imports
+
+---
+
 ## [Phase 5] — Frontend Pipeline Sidebar — 2026-02-09
 
 ### Added
