@@ -63,9 +63,19 @@ async def _run_graph(session_id: str, input_or_command):
 
     except Exception as e:
         logger.exception(f"Graph error for session {session_id}")
+        # Provide a user-friendly error message
+        error_msg = str(e)
+        if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
+            error_msg = "An API authentication error occurred. Please check your API keys."
+        elif "rate_limit" in error_msg.lower() or "429" in error_msg:
+            error_msg = "API rate limit reached. Please wait a moment and try again."
+        elif "timeout" in error_msg.lower():
+            error_msg = "A request timed out. This can happen with large generations. Please try again."
+        elif len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
         await queue.put({
             "event": "error",
-            "data": {"message": str(e)},
+            "data": {"message": error_msg},
         })
 
 

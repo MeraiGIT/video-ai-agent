@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 8 complete
-**Current phase**: Phase 8 done, starting Phase 9
+**Last updated**: Phase 9 complete
+**Current phase**: All phases complete
 
 ---
 
@@ -20,7 +20,7 @@
 | 6 | Long-Form Chunking | **Complete** | 5 files | Blueprint prompt, produce node chunk-aware, review_stage chunk display, ChunkProgress component, builds pass |
 | 7 | History + Persistence | **Complete** | 7 files | Auto-save at phase boundaries, universal project schema, frontend history universal |
 | 8 | API Routes + Session Mgmt | **Complete** | 7 files | Simplified session store, expanded schemas, new artifact renderers, quality_gate SSE, selectBudget action |
-| 9 | Testing + Polish | Not started | — | — |
+| 9 | Testing + Polish | **Complete** | 4 files | Budget enforcement, timeout protection, error message sanitization, workspace cleanup |
 
 ---
 
@@ -66,4 +66,4 @@
 
 ## Next Actions
 
-1. Phase 9: Testing + Polish — end-to-end tests, error handling
+- All phases complete. System ready for end-to-end testing.

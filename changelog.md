@@ -44,6 +44,29 @@
 
 ---
 
+## [Phase 9] — Testing + Polish — 2026-02-09
+
+### Changed
+- `backend/agent/nodes/produce.py` — Added budget enforcement (halt production at 1.5x budget limit), budget warning at 80% threshold, timeout protection for single and batch capability executions (5-minute timeout via ThreadPoolExecutor), timeout-specific error handling in batch operations
+- `backend/api/routes.py` — User-friendly error messages in graph runner (sanitizes API key errors, rate limit messages, timeout messages, truncates long errors)
+- `backend/utils/file_manager.py` — Added `cleanup_old_workspaces()` function for removing workspace dirs older than 2 hours, centralized from main.py
+- `backend/main.py` — Refactored cleanup task to use centralized `cleanup_old_workspaces()`, removed unused `time` import
+
+### Technical Details
+- Budget safety: `BUDGET_SAFETY_FACTOR = 1.5` — production halts and jumps to assembly if cost exceeds 150% of budget
+- Budget warning: emits assistant message at 80% budget consumption
+- Timeout: `CAPABILITY_TIMEOUT = 300` seconds (5 min) — protects against hung video generation APIs
+- Batch timeout: each item in a batch has its own timeout, failed items don't block others
+- Error sanitization: API key/auth errors → generic message, rate limits → user-friendly message, all errors truncated to 200 chars
+- Workspace cleanup: periodic (every 10 min), removes dirs with mtime > 2 hours
+
+### Tested
+- Backend: Graph compiles (17 nodes), produce node budget/timeout logic correct
+- Frontend: `npm run build` passes with zero errors
+- Error handling reviewed across all 16 nodes — all have graceful fallbacks
+
+---
+
 ## [Phase 8] — API Routes + Session Management — 2026-02-09
 
 ### Changed

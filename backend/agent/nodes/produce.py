@@ -6,7 +6,7 @@ stores results in state, tracks costs, and routes to quality_gate.
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 
 from langgraph.config import get_stream_writer
 
@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Max parallel generation within a batch
 MAX_PARALLEL = 4
+# Budget safety multiplier — halt production if cost exceeds this factor of budget
+BUDGET_SAFETY_FACTOR = 1.5
+# Timeout per capability execution (seconds) — video gen can be slow
+CAPABILITY_TIMEOUT = 300  # 5 minutes
 
 
 def run(state: ProductionState) -> dict:
@@ -26,6 +30,30 @@ def run(state: ProductionState) -> dict:
     stage_idx = state.get("current_stage_index", 0)
     total_chunks = state.get("total_chunks", 1)
     current_chunk = state.get("current_chunk", 0)
+
+    # Budget enforcement — halt if cost exceeds safety limit
+    budget_limit = state.get("budget_limit", 0)
+    total_cost_so_far = state.get("total_cost", 0.0)
+    if budget_limit > 0 and total_cost_so_far >= budget_limit * BUDGET_SAFETY_FACTOR:
+        logger.warning(
+            "Budget exceeded: $%.2f / $%.2f (%.1fx limit)",
+            total_cost_so_far, budget_limit, BUDGET_SAFETY_FACTOR,
+        )
+        writer({
+            "event": "message",
+            "data": {
+                "role": "assistant",
+                "content": (
+                    f"Production paused — budget limit reached "
+                    f"(${total_cost_so_far:.2f} / ${budget_limit:.2f}). "
+                    f"Proceeding to assembly with what we have."
+                ),
+            },
+        })
+        return {
+            "status": "all_stages_complete",
+            "progress_messages": [f"Budget limit reached: ${total_cost_so_far:.2f}"],
+        }
 
     if stage_idx >= len(plan):
         # Check if there are more chunks to process
@@ -123,7 +151,15 @@ def run(state: ProductionState) -> dict:
                 execute_fn, params, state, ctx, count, capability_id, writer,
             )
         else:
-            result = execute_fn(params, dict(state), ctx)
+            # Single execution with timeout protection
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(execute_fn, params, dict(state), ctx)
+                try:
+                    result = future.result(timeout=CAPABILITY_TIMEOUT)
+                except TimeoutError:
+                    raise TimeoutError(
+                        f"{capability_id} timed out after {CAPABILITY_TIMEOUT}s"
+                    )
             results = [result]
             step_cost = result.get("cost", 0.0)
     except Exception as e:
@@ -170,14 +206,26 @@ def run(state: ProductionState) -> dict:
     })
 
     # Emit cost update
+    budget_limit = state.get("budget_limit", 0)
     writer({
         "event": "cost_update",
         "data": {
             "step_cost": step_cost,
             "total_cost": total_cost,
-            "budget_limit": state.get("budget_limit", 0),
+            "budget_limit": budget_limit,
         },
     })
+
+    # Warn if approaching budget limit
+    if budget_limit > 0 and total_cost >= budget_limit * 0.8:
+        pct = (total_cost / budget_limit) * 100
+        writer({
+            "event": "message",
+            "data": {
+                "role": "assistant",
+                "content": f"Budget alert: ${total_cost:.2f} / ${budget_limit:.2f} ({pct:.0f}% used)",
+            },
+        })
 
     return state_updates
 
@@ -226,7 +274,7 @@ def _execute_batch(
         for future in as_completed(futures):
             idx = futures[future]
             try:
-                result = future.result()
+                result = future.result(timeout=CAPABILITY_TIMEOUT)
                 result["batch_index"] = idx
                 results.append(result)
                 total_cost += result.get("cost", 0.0)
@@ -237,6 +285,9 @@ def _execute_batch(
                         "message": f"Generated {len(results)}/{count}",
                     },
                 })
+            except TimeoutError:
+                logger.error("Batch item %d timed out after %ds", idx, CAPABILITY_TIMEOUT)
+                results.append({"error": f"Timed out after {CAPABILITY_TIMEOUT}s", "batch_index": idx})
             except Exception as e:
                 logger.error("Batch item %d failed: %s", idx, e)
                 results.append({"error": str(e), "batch_index": idx})

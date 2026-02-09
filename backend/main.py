@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,17 +15,12 @@ logger = logging.getLogger(__name__)
 
 async def _cleanup_old_jobs():
     """Periodically delete job workspace directories older than 2 hours."""
+    from utils.file_manager import cleanup_old_workspaces
+
     while True:
         await asyncio.sleep(600)  # Check every 10 minutes
         try:
-            if not os.path.exists(settings.WORK_DIR):
-                continue
-            cutoff = time.time() - 7200  # 2 hours ago
-            for entry in os.scandir(settings.WORK_DIR):
-                if entry.is_dir() and entry.stat().st_mtime < cutoff:
-                    import shutil
-
-                    shutil.rmtree(entry.path, ignore_errors=True)
+            cleanup_old_workspaces()
         except Exception:
             pass
 
