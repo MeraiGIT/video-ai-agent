@@ -9,6 +9,7 @@ from langgraph.config import get_stream_writer
 from langgraph.types import interrupt
 
 from agent.state import ProductionState
+from services.supabase_service import save_project_state
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,18 @@ def run(state: ProductionState) -> dict:
         },
     })
 
-    return {
+    result = {
         "status": "complete",
         "progress_messages": ["Project delivered!"],
     }
+
+    # Final auto-save — mark project as completed
+    project_id = state.get("project_id")
+    if project_id:
+        save_project_state(project_id, {
+            **dict(state),
+            **result,
+            "status": "completed",
+        })
+
+    return result

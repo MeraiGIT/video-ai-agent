@@ -5,7 +5,6 @@ so the app works without it.
 """
 
 import logging
-import os
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -38,24 +37,32 @@ def is_configured() -> bool:
 
 
 def create_project(
-    name: str, topic: str, video_model: str, concat_enabled: bool
+    name: str,
+    topic: str,
+    content_type: str = "short_video",
+    video_model: str = "",
+    concat_enabled: bool = False,
 ) -> dict | None:
+    """Create a new project record.
+
+    Supports both legacy fields (video_model, concat_enabled) and
+    new universal fields (content_type).
+    """
     client = _get_client()
     if not client:
         return None
     try:
-        result = (
-            client.table("projects")
-            .insert(
-                {
-                    "name": name,
-                    "topic": topic,
-                    "video_model": video_model,
-                    "concat_enabled": concat_enabled,
-                }
-            )
-            .execute()
-        )
+        row = {
+            "name": name,
+            "topic": topic,
+            "content_type": content_type,
+        }
+        # Include legacy fields if provided (for backwards compat)
+        if video_model:
+            row["video_model"] = video_model
+        if concat_enabled:
+            row["concat_enabled"] = concat_enabled
+        result = client.table("projects").insert(row).execute()
         return result.data[0] if result.data else None
     except Exception as e:
         logger.error(f"Failed to create project: {e}")
@@ -77,6 +84,44 @@ def update_project(project_id: str, updates: dict) -> dict | None:
     except Exception as e:
         logger.error(f"Failed to update project {project_id}: {e}")
         return None
+
+
+def save_project_state(project_id: str, state: dict) -> dict | None:
+    """Save the full project state snapshot (called at phase boundaries).
+
+    Stores creative_brief, production_plan, blueprint, pipeline_stages,
+    cost_breakdown as JSONB columns. These fields may not exist in the
+    database table yet — if the columns don't exist, they're silently skipped.
+    """
+    updates: dict = {}
+
+    # Map state fields to DB columns
+    field_map = {
+        "creative_brief": "creative_brief",
+        "production_plan": "production_plan",
+        "blueprint": "blueprint",
+        "pipeline_stages": "pipeline_stages",
+        "cost_breakdown": "cost_breakdown",
+        "content_type": "content_type",
+        "target_platform": "target_platform",
+    }
+    for state_key, db_key in field_map.items():
+        val = state.get(state_key)
+        if val is not None:
+            updates[db_key] = val
+
+    total_cost = state.get("total_cost")
+    if total_cost is not None:
+        updates["total_cost"] = total_cost
+
+    status = state.get("status", "")
+    if status:
+        updates["status"] = status
+
+    if not updates:
+        return None
+
+    return update_project(project_id, updates)
 
 
 def get_project(project_id: str) -> dict | None:
@@ -157,13 +202,17 @@ def create_media_record(
     filename: str | None = None,
     storage_path: str | None = None,
     scene_number: int | None = None,
+    stage: str | None = None,
+    model_used: str | None = None,
+    cost: float | None = None,
     metadata: dict | None = None,
 ) -> dict | None:
+    """Create a media record with optional production tracking fields."""
     client = _get_client()
     if not client:
         return None
     try:
-        row = {
+        row: dict = {
             "project_id": project_id,
             "type": media_type,
             "public_url": public_url,
@@ -172,6 +221,12 @@ def create_media_record(
         }
         if scene_number is not None:
             row["scene_number"] = scene_number
+        if stage:
+            row["stage"] = stage
+        if model_used:
+            row["model_used"] = model_used
+        if cost is not None:
+            row["cost"] = cost
         if metadata:
             row["metadata"] = metadata
         result = client.table("media").insert(row).execute()

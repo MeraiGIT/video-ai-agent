@@ -44,6 +44,30 @@
 
 ---
 
+## [Phase 7] — History + Persistence — 2026-02-09
+
+### Changed
+- `backend/services/supabase_service.py` — Enhanced `create_project()` with `content_type` parameter, added `save_project_state()` for auto-saving at phase boundaries (saves creative_brief, production_plan, blueprint, pipeline_stages, cost_breakdown, status as JSONB), enhanced `create_media_record()` with stage/model_used/cost tracking
+- `backend/agent/nodes/review_direction.py` — Auto-save to Supabase after creative direction approval
+- `backend/agent/nodes/review_blueprint.py` — Auto-save to Supabase after blueprint approval
+- `backend/agent/nodes/review_final.py` — Auto-save marking project as completed on final approval
+- `frontend/src/lib/api.ts` — Project interface updated with optional content_type, total_cost, video_model, concat_enabled fields
+- `frontend/src/components/history/ProjectCard.tsx` — Shows content_type badge and total cost instead of video model
+- `frontend/src/app/history/page.tsx` — Updated text from "video creations" to "projects" for universal content
+
+### Technical Details
+- Phase boundary auto-save: review_direction, review_blueprint, review_final all call `save_project_state()` on approval
+- Supabase JSONB columns used for complex state (creative_brief, production_plan, blueprint, pipeline_stages, cost_breakdown)
+- Media records now track stage, model_used, and cost for per-asset analytics
+- Frontend history is now content-type agnostic (shows any project, not just videos)
+
+### Tested
+- Backend: Graph compiles (17 nodes), all review nodes import with auto-save
+- Frontend: `npm run build` passes with zero errors
+- Project interface backwards compatible (new fields are optional)
+
+---
+
 ## [Phase 6] — Long-Form Chunking — 2026-02-09
 
 ### Added

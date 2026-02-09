@@ -79,7 +79,7 @@ export default function HistoryPage() {
         <div>
           <h2 className="text-2xl font-bold text-white">Generation History</h2>
           <p className="text-sm text-gray-400 mt-1">
-            Browse your past video creations
+            Browse your past projects
           </p>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function HistoryPage() {
           <div className="text-4xl mb-4">🎬</div>
           <p className="text-gray-400 mb-2">No projects yet</p>
           <p className="text-sm text-gray-500">
-            Create your first video to see it here
+            Create your first project to see it here
           </p>
         </div>
       )}

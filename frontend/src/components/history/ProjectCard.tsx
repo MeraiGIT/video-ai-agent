@@ -71,7 +71,18 @@ export default function ProjectCard({ project, onClick, onDelete }: Props) {
         </h3>
         <div className="flex items-center justify-between mt-1.5">
           <span className="text-xs text-gray-500">{date}</span>
-          <span className="text-xs text-gray-600">{project.video_model}</span>
+          <div className="flex items-center gap-1.5">
+            {project.content_type && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">
+                {project.content_type.replace("_", " ")}
+              </span>
+            )}
+            {project.total_cost != null && project.total_cost > 0 && (
+              <span className="text-[10px] text-gray-600 font-mono">
+                ${project.total_cost.toFixed(2)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

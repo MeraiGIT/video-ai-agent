@@ -63,9 +63,11 @@ export interface Project {
   id: string;
   name: string;
   topic: string;
-  video_model: string;
-  concat_enabled: boolean;
+  content_type?: string;
+  video_model?: string;
+  concat_enabled?: boolean;
   status: string;
+  total_cost?: number;
   thumbnail_url: string | null;
   created_at: string;
   completed_at: string | null;

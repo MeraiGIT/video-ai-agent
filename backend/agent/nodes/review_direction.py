@@ -11,6 +11,7 @@ from langgraph.config import get_stream_writer
 from langgraph.types import interrupt
 
 from agent.state import ProductionState
+from services.supabase_service import save_project_state
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,11 @@ def run(state: ProductionState) -> dict:
                 "content": f"Creative direction approved with **{selected_tier}** budget. Moving to blueprint...",
             },
         })
+
+        # Auto-save to Supabase at this phase boundary
+        project_id = state.get("project_id")
+        if project_id:
+            save_project_state(project_id, {**dict(state), **result})
 
         return result
 
