@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 1 complete
-**Current phase**: Phase 1 done, starting Phase 2
+**Last updated**: Phase 2 complete
+**Current phase**: Phase 2 done, starting Phase 3
 
 ---
 
@@ -13,7 +13,7 @@
 |-------|------|--------|---------------|-------|
 | 0 | Foundation | **Complete** | 25+ files | Graph compiles, all imports pass |
 | 1 | Intake + Interview | **Complete** | 10 files | Backend+frontend compile, prompts build |
-| 2 | Research + Creative Direction | Not started | — | — |
+| 2 | Research + Creative Direction | **Complete** | 9 files | Backend+frontend compile, prompts build, model context injects |
 | 3 | Blueprint + Production Executor | Not started | — | — |
 | 4 | Assembly + Polish + Deliver | Not started | — | — |
 | 5 | Frontend Pipeline Sidebar | Not started | — | — |
@@ -66,6 +66,6 @@
 
 ## Next Actions
 
-1. Phase 1: Intake + Interview — prompts, node logic, frontend TopicForm update
-2. Phase 2: Research + Creative Direction — Tavily integration, brain prompt, budget variants
-3. Phase 3: Blueprint + Production Executor — 20+ capability functions, quality gate
+1. Phase 3: Blueprint + Production Executor — 20+ capability functions, quality gate
+2. Phase 4: Assembly + Polish + Deliver — post-production pipeline
+3. Phase 5: Frontend Pipeline Sidebar — visual progress, cost tracking

@@ -44,6 +44,31 @@
 
 ---
 
+## [Phase 2] — Research + Creative Direction — 2026-02-09
+
+### Added
+- `backend/agent/prompts/research.py` — Research prompts: query generation (2-4 targeted search queries) + synthesis (trends, recommendations, audience insights)
+- `backend/agent/prompts/creative_direction.py` — "Brain" prompt (~150 lines): injects model knowledge + capabilities, generates creative brief + production plan + 3 budget variants with 11 critical rules
+- `backend/agent/prompts/model_knowledge.py` — Injectable model/capability context: formatted model cards with costs/strengths/weaknesses, capability list with production plan format, model selection guidance
+- `frontend/src/components/artifacts/CreativeBriefCard.tsx` — Expandable card showing concept, visual style, tone, pacing, audio direction, color palette, key messages, references (purple gradient styling)
+- `frontend/src/components/artifacts/BudgetSelector.tsx` — 3-column budget tier selector (green/blue/amber), expandable cost breakdowns, confirm button
+
+### Changed
+- `backend/agent/nodes/research.py` — REWRITTEN: 3-step process (Claude generates queries → Tavily multi-search → Claude synthesizes findings), graceful fallback on search failure
+- `backend/agent/nodes/creative_direction.py` — REWRITTEN: Single Claude call with brain prompt (max_tokens=4096), parses creative_brief + production_plan + budget_variants, emits SSE artifacts
+- `backend/agent/nodes/review_direction.py` — REWRITTEN: interrupt() for budget tier approval, applies selected variant's model_selections to production plan, sets budget_limit (1.2x estimate)
+- `frontend/src/components/chat/ChatView.tsx` — Added creative_brief and budget_variants artifact rendering cases
+
+### Fixed
+- `model_knowledge.py` — Removed reference to non-existent `capabilities` field in MODEL_CARDS (uses strengths/weaknesses/best_for instead)
+
+### Tested
+- Backend: Graph compiles (17 nodes), all Phase 2 node imports pass, model context generates correctly
+- Frontend: `npm run build` passes with zero errors
+- Prompt injection: `get_full_context()` produces formatted model cards + capability list for brain prompt
+
+---
+
 ## [Phase 1] — Intake + Interview — 2026-02-09
 
 ### Added

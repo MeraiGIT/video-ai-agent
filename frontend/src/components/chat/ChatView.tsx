@@ -8,6 +8,8 @@ import ImageGrid from "@/components/artifacts/ImageGrid";
 import VideoGrid from "@/components/artifacts/VideoGrid";
 import VoiceoverPlayer from "@/components/artifacts/VoiceoverPlayer";
 import FinalVideo from "@/components/artifacts/FinalVideo";
+import CreativeBriefCard from "@/components/artifacts/CreativeBriefCard";
+import BudgetSelector from "@/components/artifacts/BudgetSelector";
 import ProgressIndicator from "@/components/artifacts/ProgressIndicator";
 import InputBar from "@/components/input/InputBar";
 
@@ -136,6 +138,23 @@ export default function ChatView({
           <FinalVideo
             urls={data.urls as string[]}
             onCreateAnother={onReset}
+          />
+        );
+
+      case "creative_brief":
+        return (
+          <CreativeBriefCard
+            brief={data.brief as Record<string, unknown>}
+          />
+        );
+
+      case "budget_variants":
+        return (
+          <BudgetSelector
+            variants={data.variants as { tier: string; total_estimate: number; model_selections: Record<string, string>; cost_breakdown: { step: string; model: string; count: number; unit_cost: number; total: number }[]; tradeoffs: string }[]}
+            onSelect={(tier) => {
+              onModify(`approve:${tier}`);
+            }}
           />
         );
 
