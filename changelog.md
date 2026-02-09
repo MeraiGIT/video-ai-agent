@@ -44,6 +44,30 @@
 
 ---
 
+## [Phase 4] — Assembly + Polish + Deliver — 2026-02-09
+
+### Added
+- `backend/agent/nodes/assemble.py` — REWRITTEN (~176 lines): Content-type-aware assembly (video concat+audio overlay, graphic pass-through, audio mix), fallback path handling
+- `backend/agent/nodes/review_assembly.py` — REWRITTEN: interrupt() for assembled output approval with approve/modify actions
+- `backend/agent/nodes/polish.py` — REWRITTEN (~320 lines): Video polish pipeline (caption burn via whisper+FFmpeg, text overlays from blueprint, audio normalization to platform LUFS standards, thumbnail extraction), audio normalization for podcasts, graceful fallback on each step
+- `backend/agent/nodes/review_polish.py` — REWRITTEN: interrupt() for polished output approval with approve/modify actions
+- `backend/agent/nodes/deliver.py` — REWRITTEN (~213 lines): Claude-generated metadata (title, description, hashtags, SEO tags), cost summary, final artifact emission, platform-optimized delivery message
+- `backend/agent/nodes/review_final.py` — REWRITTEN: Final interrupt() for delivery approval, emits complete event
+
+### Technical Details
+- Platform loudness standards: TikTok/YouTube/Instagram at -14 LUFS, LinkedIn/Podcast at -16 LUFS
+- Default caption styles per platform: TikTok→tiktok, YouTube→youtube, Instagram→bold, LinkedIn→minimal
+- Caption pipeline: extract_audio → transcribe_to_word_srt → burn_subtitles (each step independently recoverable)
+- Thumbnail: FFmpeg frame extraction at video midpoint
+- Metadata: Claude Sonnet 4.5 generates platform-optimized title/description/hashtags with fallback defaults
+
+### Tested
+- Backend: All 6 Phase 4 nodes import with callable run() functions
+- Graph compiles (17 nodes), all conditional routing functions resolve
+- Frontend: `npm run build` passes with zero errors
+
+---
+
 ## [Phase 3] — Blueprint + Production Executor — 2026-02-09
 
 ### Added

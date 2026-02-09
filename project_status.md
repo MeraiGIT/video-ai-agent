@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 3 complete
-**Current phase**: Phase 3 done, starting Phase 4
+**Last updated**: Phase 4 complete
+**Current phase**: Phase 4 done, starting Phase 5
 
 ---
 
@@ -15,7 +15,7 @@
 | 1 | Intake + Interview | **Complete** | 10 files | Backend+frontend compile, prompts build |
 | 2 | Research + Creative Direction | **Complete** | 9 files | Backend+frontend compile, prompts build, model context injects |
 | 3 | Blueprint + Production Executor | **Complete** | 28 files | All 20 capabilities + 5 nodes + 2 prompts + frontend component compile |
-| 4 | Assembly + Polish + Deliver | Not started | — | — |
+| 4 | Assembly + Polish + Deliver | **Complete** | 6 files | All 6 nodes import, graph compiles (17 nodes), frontend builds |
 | 5 | Frontend Pipeline Sidebar | Not started | — | — |
 | 6 | Long-Form Chunking | Not started | — | — |
 | 7 | History + Persistence | Not started | — | — |
@@ -66,6 +66,6 @@
 
 ## Next Actions
 
-1. Phase 4: Assembly + Polish + Deliver — post-production pipeline
-2. Phase 5: Frontend Pipeline Sidebar — visual progress, cost tracking
-3. Phase 6: Long-Form Chunking — 5-minute chapter processing
+1. Phase 5: Frontend Pipeline Sidebar — visual progress, cost tracking
+2. Phase 6: Long-Form Chunking — 5-minute chapter processing
+3. Phase 7: History + Persistence — Supabase schema, auto-save
