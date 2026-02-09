@@ -1,109 +1,186 @@
+"""
+LangGraph StateGraph for the AI Production Studio.
+
+8-phase universal pipeline with 16 nodes:
+  INTAKE → RESEARCH → CREATIVE DIRECTION → BLUEPRINT → PRODUCE → ASSEMBLE → POLISH → DELIVER
+
+Each phase has generate + review (interrupt) node pairs.
+The produce phase has a quality gate supervisor loop.
+"""
+
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
-from agent.state import VideoState
+
+from agent.state import ProductionState
 from agent.nodes import (
-    analyze_input,
-    write_script,
-    review_script,
-    plan_scenes,
-    review_scenes,
-    generate_images,
-    review_images,
-    generate_videos,
-    review_videos,
-    generate_voiceover,
-    review_voiceover,
-    assemble_video,
-    add_captions,
-    finish_individual,
+    intake,
+    interview,
+    research,
+    creative_direction,
+    review_direction,
+    blueprint,
+    review_blueprint,
+    produce,
+    quality_gate,
+    review_stage,
+    assemble,
+    review_assembly,
+    polish,
+    review_polish,
+    deliver,
+    review_final,
 )
 
 
-# --- Conditional edge functions ---
-
-def _after_review_script(state: VideoState) -> str:
-    if state.get("status") == "script_approved":
-        return "generate_scenes"
-    return "review_script"
+# === Conditional Routing Functions ===
 
 
-def _after_review_scenes(state: VideoState) -> str:
-    if state.get("status") == "scenes_approved":
-        return "generate_images"
-    return "review_scenes"
+def route_after_interview(state: ProductionState) -> str:
+    """After interview: go to research if needed, otherwise creative_direction."""
+    if state.get("research_needed"):
+        return "research"
+    return "creative_direction"
 
 
-def _after_review_images(state: VideoState) -> str:
-    if state.get("status") == "images_approved":
-        return "generate_videos"
-    if state.get("status") == "images_regenerating":
-        return "generate_images"
-    # Unclear request - loop back to review
-    return "review_images"
+def route_after_direction_review(state: ProductionState) -> str:
+    """After user reviews creative direction: approve → blueprint, modify → back."""
+    if state.get("status") == "direction_approved":
+        return "blueprint"
+    return "creative_direction"
 
 
-def _after_review_videos(state: VideoState) -> str:
-    if state.get("status") == "videos_approved":
-        return "generate_voiceover"
-    if state.get("status") == "videos_regenerating":
-        return "generate_videos"
-    return "review_videos"
+def route_after_blueprint_review(state: ProductionState) -> str:
+    """After user reviews blueprint: approve → produce, modify → back."""
+    if state.get("status") == "blueprint_approved":
+        return "produce"
+    return "blueprint"
 
 
-def _after_review_voiceover(state: VideoState) -> str:
-    if state.get("status") == "voiceover_approved":
-        if state.get("concat_enabled", True):
-            return "assemble_video"
-        return "finish_individual"
-    return "review_voiceover"
+def route_after_produce(state: ProductionState) -> str:
+    """After producing an asset: evaluate quality or go to stage review."""
+    plan = state.get("production_plan", [])
+    stage_idx = state.get("current_stage_index", 0)
+    if stage_idx >= len(plan):
+        return "review_stage"
+    return "quality_gate"
+
+
+def route_after_quality_gate(state: ProductionState) -> str:
+    """After quality evaluation: pass → produce next, fail → retry or escalate."""
+    results = state.get("quality_results", [])
+    last_result = results[-1] if results else {}
+
+    if last_result.get("passed", True):
+        return "produce"
+
+    retry_count = state.get("retry_count", 0)
+    if retry_count >= 3:
+        return "review_stage"
+
+    return "produce"
+
+
+def route_after_stage_review(state: ProductionState) -> str:
+    """After user reviews a production stage: next stage, redo, or assemble."""
+    if state.get("status") == "all_stages_complete":
+        return "assemble"
+    if state.get("status") == "stage_approved":
+        return "produce"
+    return "produce"
+
+
+def route_after_assembly_review(state: ProductionState) -> str:
+    """After user reviews assembly: approve → polish, modify → redo."""
+    if state.get("status") == "assembly_approved":
+        return "polish"
+    return "assemble"
+
+
+def route_after_polish_review(state: ProductionState) -> str:
+    """After user reviews polish: approve → deliver, modify → redo."""
+    if state.get("status") == "polish_approved":
+        return "deliver"
+    return "polish"
+
+
+# === Graph Builder ===
 
 
 def build_graph():
-    """Build the content creation pipeline with separate generate/review nodes."""
-    builder = StateGraph(VideoState)
+    """Build the 16-node production pipeline graph."""
+    builder = StateGraph(ProductionState)
 
-    # Add all nodes
-    builder.add_node("analyze_input", analyze_input.run)
-    builder.add_node("generate_script", write_script.generate)
-    builder.add_node("review_script", review_script.review)
-    builder.add_node("generate_scenes", plan_scenes.generate)
-    builder.add_node("review_scenes", review_scenes.review)
-    builder.add_node("generate_images", generate_images.generate)
-    builder.add_node("review_images", review_images.review)
-    builder.add_node("generate_videos", generate_videos.generate)
-    builder.add_node("review_videos", review_videos.review)
-    builder.add_node("generate_voiceover", generate_voiceover.generate)
-    builder.add_node("review_voiceover", review_voiceover.review)
-    builder.add_node("assemble_video", assemble_video.run)
-    builder.add_node("add_captions", add_captions.run)
-    builder.add_node("finish_individual", finish_individual.run)
+    # Phase 1: Intake
+    builder.add_node("intake", intake.run)
+    builder.add_node("interview", interview.run)
 
-    # Linear flow: analyze → generate → review (with conditional loops)
-    builder.add_edge(START, "analyze_input")
-    builder.add_edge("analyze_input", "generate_script")
-    builder.add_edge("generate_script", "review_script")
-    builder.add_conditional_edges("review_script", _after_review_script)
+    # Phase 2: Research
+    builder.add_node("research", research.run)
 
-    builder.add_edge("generate_scenes", "review_scenes")
-    builder.add_conditional_edges("review_scenes", _after_review_scenes)
+    # Phase 3: Creative Direction
+    builder.add_node("creative_direction", creative_direction.run)
+    builder.add_node("review_direction", review_direction.run)
 
-    builder.add_edge("generate_images", "review_images")
-    builder.add_conditional_edges("review_images", _after_review_images)
+    # Phase 4: Blueprint
+    builder.add_node("blueprint", blueprint.run)
+    builder.add_node("review_blueprint", review_blueprint.run)
 
-    builder.add_edge("generate_videos", "review_videos")
-    builder.add_conditional_edges("review_videos", _after_review_videos)
+    # Phase 5: Produce (dynamic capability executor + quality gate)
+    builder.add_node("produce", produce.run)
+    builder.add_node("quality_gate", quality_gate.run)
+    builder.add_node("review_stage", review_stage.run)
 
-    builder.add_edge("generate_voiceover", "review_voiceover")
-    builder.add_conditional_edges("review_voiceover", _after_review_voiceover)
+    # Phase 6: Assemble
+    builder.add_node("assemble", assemble.run)
+    builder.add_node("review_assembly", review_assembly.run)
 
-    builder.add_edge("assemble_video", "add_captions")
-    builder.add_edge("add_captions", END)
-    builder.add_edge("finish_individual", END)
+    # Phase 7: Polish
+    builder.add_node("polish", polish.run)
+    builder.add_node("review_polish", review_polish.run)
 
-    # Compile with checkpointer for interrupt/resume support
+    # Phase 8: Deliver
+    builder.add_node("deliver", deliver.run)
+    builder.add_node("review_final", review_final.run)
+
+    # === Edges ===
+
+    # Phase 1: Intake → Interview → (research or creative_direction)
+    builder.add_edge(START, "intake")
+    builder.add_edge("intake", "interview")
+    builder.add_conditional_edges("interview", route_after_interview)
+
+    # Phase 2: Research → Creative Direction
+    builder.add_edge("research", "creative_direction")
+
+    # Phase 3: Creative Direction → Review → (back or blueprint)
+    builder.add_edge("creative_direction", "review_direction")
+    builder.add_conditional_edges("review_direction", route_after_direction_review)
+
+    # Phase 4: Blueprint → Review → (back or produce)
+    builder.add_edge("blueprint", "review_blueprint")
+    builder.add_conditional_edges("review_blueprint", route_after_blueprint_review)
+
+    # Phase 5: Produce → Quality Gate → (produce or review_stage)
+    builder.add_conditional_edges("produce", route_after_produce)
+    builder.add_conditional_edges("quality_gate", route_after_quality_gate)
+    builder.add_conditional_edges("review_stage", route_after_stage_review)
+
+    # Phase 6: Assemble → Review → (back or polish)
+    builder.add_edge("assemble", "review_assembly")
+    builder.add_conditional_edges("review_assembly", route_after_assembly_review)
+
+    # Phase 7: Polish → Review → (back or deliver)
+    builder.add_edge("polish", "review_polish")
+    builder.add_conditional_edges("review_polish", route_after_polish_review)
+
+    # Phase 8: Deliver → Final Review → END
+    builder.add_edge("deliver", "review_final")
+    builder.add_edge("review_final", END)
+
+    # Compile with checkpointer for interrupt support
     memory = MemorySaver()
     return builder.compile(checkpointer=memory)
 
 
-# Module-level singleton - compiled once, reused for every request
+# Module-level singleton — compiled once, reused for every request
 graph = build_graph()

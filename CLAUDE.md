@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Content Maker — a conversational video creation agent. The user enters a topic and steps through a multi-stage pipeline: script writing, scene planning, image generation, video generation, voiceover, and final assembly. At each stage the user reviews output, can request modifications via chat, then approves to continue.
+AI Production Studio — a universal AI content creation system that takes ANY creative request and produces professional output. The system acts as a full production team: interviewing the client, researching trends, planning creative direction with budget options, executing production with automated quality control, and delivering platform-optimized content.
+
+**Not just video** — the system handles short videos, long-form films, graphic design, motion graphics, podcasts, and anything else the user requests. The LLM dynamically generates the production plan and blueprint based on available capabilities.
 
 ## Running the Project
 
@@ -24,69 +26,73 @@ npm run lint                # ESLint
 ```
 
 ### Environment
-Copy `.env.example` to `.env` at the project root. Required keys: `ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`. Config is loaded in `backend/config.py` via pydantic-settings.
+Copy `.env.example` to `.env` at the project root. Required keys: `ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_API_KEY`, `TAVILY_API_KEY`. Config is loaded in `backend/config.py` via pydantic-settings.
 
 ## Architecture
 
-### LangGraph Pipeline with Human-in-the-Loop
+### 8-Phase Universal Pipeline (LangGraph StateGraph)
 
-The backend uses a LangGraph `StateGraph` with `interrupt()` calls to pause for user review. The graph is compiled with `MemorySaver` checkpointer to persist state across interrupts.
+Every project flows through 8 phases. What changes between content types is what happens INSIDE each phase — driven by the LLM-generated creative brief and production plan.
 
-**Graph flow** (defined in `backend/agent/graph.py`):
 ```
-START → analyze_input → write_script → plan_scenes → generate_images
-  → generate_videos → generate_voiceover → [conditional]
-    → assemble_video → add_captions → END        (if concat_enabled)
-    → finish_individual → END                     (if not concat_enabled)
+INTAKE → RESEARCH → CREATIVE DIRECTION → BLUEPRINT → PRODUCE → ASSEMBLE → POLISH → DELIVER
 ```
 
-Each review node (write_script, plan_scenes, generate_images, generate_videos, generate_voiceover) follows this pattern:
-```python
-def run(state):
-    writer = get_stream_writer()
-    result = generate_content(...)
-    writer({"event": "artifact", "data": {...}})
-    while True:
-        response = interrupt({"stage": "...", "actions": [...]})
-        if response["action"] == "approve":
-            break
-        result = modify_content(result, response["message"])
-        writer({"event": "artifact", "data": {...}})
-    return {updated state}
-```
+**Graph nodes** (16 total, defined in `backend/agent/graph.py`):
+- Phase 1: `intake` → `interview` (interrupt)
+- Phase 2: `research` (conditional — only if needed)
+- Phase 3: `creative_direction` → `review_direction` (interrupt)
+- Phase 4: `blueprint` → `review_blueprint` (interrupt)
+- Phase 5: `produce` → `quality_gate` → `review_stage` (interrupt at stage boundaries)
+- Phase 6: `assemble` → `review_assembly` (interrupt)
+- Phase 7: `polish` → `review_polish` (interrupt)
+- Phase 8: `deliver` → `review_final` (interrupt)
+
+### Core Principles (DO NOT VIOLATE)
+
+1. **Nothing is hardcoded per content type.** The LLM dynamically generates the production plan, blueprint, and creative direction. No `if content_type == "video"` switches.
+2. **Blueprint is freeform.** The LLM generates whatever structure is needed for the task. No fixed schema per content type.
+3. **Dynamic capability execution.** The `production_plan` is a JSON list of capability steps. The produce node walks it and calls each capability function from the registry.
+4. **Quality gate uses Gemini 2.5 Pro in vision mode.** It actually SEES images, WATCHES videos, LISTENS to audio. Not just metadata analysis.
+5. **Stage-level user approval, not per-generation.** The quality gate runs autonomously. Users are only interrupted at stage boundaries or when the system needs permission to upgrade models.
+6. **LangGraph interrupt() safety.** NEVER put API calls and interrupt() in the same node. The node re-executes entirely on resume. Always split into separate generate and review nodes.
+
+### Hybrid Multi-Agent Pattern
+
+- **Sequential**: Main 8-phase flow always in order
+- **Supervisor**: Quality gate loop (generate → Gemini evaluate → Claude optimize → retry)
+- **Parallel**: Batch asset generation (e.g., 5 images simultaneously)
 
 ### Communication Pattern
 
-- **SSE + REST**: Frontend connects to `GET /api/sessions/{id}/events` for server-sent events. User actions (approve/modify/regenerate) send `POST /api/sessions/{id}/resume` which resumes the graph via `Command(resume=...)`.
-- **Event types**: `message` (chat bubbles), `artifact` (rich content cards), `progress` (loading bars), `awaiting` (enables input), `error`, `complete`.
-- Nodes emit events via `get_stream_writer()` which pushes to an `asyncio.Queue` per session, consumed by the SSE endpoint.
+- **SSE + REST**: Frontend connects to `GET /api/sessions/{id}/events` for server-sent events. User actions send `POST /api/sessions/{id}/resume` which resumes the graph via `Command(resume=...)`.
+- **Event types**: `message`, `artifact`, `progress`, `awaiting`, `pipeline_update`, `cost_update`, `quality_gate`, `error`, `complete`.
+- Nodes emit events via `get_stream_writer()` which pushes to an `asyncio.Queue` per session.
 
-### Backend API (4 endpoints in `backend/api/routes.py`)
+### Capability Layer (`backend/agent/capabilities/`)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/sessions` | Create session, start graph |
-| POST | `/api/sessions/{id}/resume` | Resume graph with user action |
-| GET | `/api/sessions/{id}/events` | SSE event stream |
-| GET | `/api/media/{id}/{filename}` | Serve generated media files |
+Each capability is a well-tested function that the production executor calls:
+- **Generation**: `image_gen`, `video_gen`, `voiceover`, `voice_select`, `voice_clone`, `music_gen`, `sfx_gen`, `face_reference`, `first_last_frame`
+- **Processing**: `audio_mix`, `video_concat`, `audio_overlay`, `caption_burn`, `text_overlay`, `image_composite`, `transcribe`
+- **Analysis**: `analyze_image`, `analyze_video`, `analyze_reference`, `analyze_video_reference`, `check_consistency`, `web_search`
 
-### Frontend State Management
+### Service Layer (`backend/services/`)
 
-`useSession` hook (`frontend/src/hooks/useSession.ts`) is the central state manager. It holds `chatItems[]`, `currentProgress`, `awaiting`, `stage`, and exposes `start()`, `approve()`, `modify()`, `regenerate()`, `reset()`.
-
-`ChatView` routes `ChatItem` objects to artifact renderers. Image/video artifacts are collected and rendered as grids only on the last artifact of that type to avoid duplicates.
-
-### Services (all synchronous, run in LangGraph's thread pool)
-
-| File | External API | Key functions |
+| File | External API | Key Functions |
 |------|-------------|---------------|
-| `claude_service.py` | Anthropic (claude-sonnet-4-5-20250929) | `generate_script()`, `plan_scenes_from_script()` |
-| `fal_service.py` | fal.ai | `generate_image()` (Seedream 4.5), `generate_video()` (3 models) |
-| `elevenlabs_service.py` | ElevenLabs | `generate_tts()` |
-| `ffmpeg_service.py` | local FFmpeg | `concat_videos()`, `overlay_audio()`, `burn_subtitles()` |
-| `whisper_service.py` | local faster-whisper | `transcribe_to_srt()` |
-
-`modification.py` in `backend/agent/` provides Claude-powered content editing: `modify_script()`, `modify_scenes()`, `interpret_regeneration_request()`.
+| `claude_service.py` | Anthropic | LLM calls for planning, scripting, optimization |
+| `gemini_service.py` | Google AI (gemini-2.5-pro) | Vision-mode quality evaluation |
+| `fal_service.py` | fal.ai | Image gen (Seedream), Video gen (Seedance, Kling) |
+| `kie_service.py` | Kie AI | Video gen (Veo 3.1, Kling) with async polling |
+| `elevenlabs_service.py` | ElevenLabs | TTS, SFX, voice search/clone |
+| `ffmpeg_service.py` | local FFmpeg | Concat, transitions, audio mix, captions, overlays |
+| `whisper_service.py` | local faster-whisper | Audio transcription to SRT |
+| `tavily_service.py` | Tavily | Web search for research phase |
+| `nanana_service.py` | Nanana AI | Nano Banana Pro image generation |
+| `video_router.py` | — | Routes to correct video provider based on model |
+| `caption_styles.py` | — | 7 caption presets (tiktok, youtube, cinematic, etc.) |
+| `model_registry.py` | — | Model knowledge cards (costs, strengths, prompting) |
+| `supabase_service.py` | Supabase | Project history, media storage |
 
 ### Key Design Decisions
 
@@ -95,8 +101,55 @@ def run(state):
 - **FFmpeg `filter_complex` concat** is used instead of demuxer for cross-model codec compatibility.
 - **faster-whisper** is used over openai-whisper (4x faster, same accuracy).
 - **Generated files** live in `backend/workspace/{job_id}/` and are auto-cleaned after 2 hours.
-- **Cache-busting**: `?t={timestamp}` is appended to media URLs when content is regenerated.
+- **Long-form content** (>5 min) is processed in 5-minute chunks with inter-chunk context passing.
+- **Motion graphics** use Nano Banana first/last frame + video gen with first/last frame support.
+- **Video recreation** uses Gemini vision to analyze uploaded video → feeds creative direction.
 
 ## State Shape
 
-`VideoState` (`backend/agent/state.py`): `job_id`, `input_topic`, `video_model`, `concat_enabled`, `script`, `scenes` (list of `Scene` TypedDict with narration/visual_description/image_prompt/duration/image_url/video_local_path), `voiceover_path`, `assembled_video_path`, `final_video_path`, `status`, `error`, `progress_messages` (annotated with `operator.add`).
+`ProductionState` (`backend/agent/state.py`): Universal state with ~40 fields covering all phases — identity, user input, intake, research, creative direction (brief + plan + budget variants), blueprint (freeform), production artifacts (images, videos, audio), quality tracking, post-production paths, cost tracking, and pipeline visualization.
+
+## Planning Documents
+
+| Document | Purpose |
+|----------|---------|
+| `SYSTEM_SPEC.md` | Comprehensive system specification (how everything works) |
+| `BUILDING_PLAN.md` | File-by-file implementation plan (what to build, in what order) |
+| `how_it_should_work.md` | User's original 120-line spec (reference) |
+| `architecture.md` | Living architecture diagram (updated per phase) |
+| `project_status.md` | Current phase tracking (updated per phase) |
+| `changelog.md` | What changed per phase (updated per phase) |
+
+## Development Workflow
+
+**CRITICAL: Follow this workflow for every implementation phase. Do not skip steps.**
+
+### Per-Phase Workflow
+
+1. **Code**: Implement the phase's files per BUILDING_PLAN.md
+   - Use Context7 MCP for up-to-date library docs
+   - Use any tools needed to produce best possible code
+   - Reference v2 codebase at `../video-ai-agent-v2/` for reusable patterns
+
+2. **Test**: Run real tests that stress edge cases
+   - Test happy path AND failure scenarios
+   - Test with various input types (if applicable to the phase)
+   - Verify SSE events emit correctly
+   - Verify state updates correctly
+
+3. **Iterate**: Fix issues found in testing
+   - Do not move on until the phase works correctly
+   - Fix edge cases, error handling, graceful degradation
+
+4. **Update Docs**: After phase is complete and tested:
+   - Update `architecture.md` with any architectural changes
+   - Update `project_status.md` with phase status, files changed, test results
+   - Update `changelog.md` with what was added/changed/fixed/tested
+   - Update this `CLAUDE.md` if the architecture section needs changes
+
+5. **Git Commit + Push**: After docs are updated:
+   - Stage all changed files for the phase
+   - Commit with descriptive message: `"Phase N: [Phase Name] — [brief summary]"`
+   - Push to remote
+
+6. **Next Phase**: Only after commit + push, move to next phase

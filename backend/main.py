@@ -42,6 +42,19 @@ async def lifespan(app: FastAPI):
             "FFmpeg not found! Video assembly and captions will not work. "
             "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)"
         )
+    # Log service availability
+    services = {
+        "Anthropic (Claude)": bool(settings.ANTHROPIC_API_KEY),
+        "fal.ai": bool(settings.FAL_KEY),
+        "ElevenLabs": bool(settings.ELEVENLABS_API_KEY),
+        "Gemini": bool(settings.GOOGLE_API_KEY),
+        "Tavily": bool(settings.TAVILY_API_KEY),
+        "Nanana": bool(settings.NANANA_API_KEY),
+    }
+    for name, available in services.items():
+        status = "available" if available else "not configured"
+        logger.info(f"Service {name}: {status}")
+
     # Ensure workspace directory exists
     os.makedirs(settings.WORK_DIR, exist_ok=True)
     # Start cleanup task
@@ -52,8 +65,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI Content Maker",
-    description="Autonomous video creation agent",
+    title="AI Production Studio",
+    description="Universal AI content creation agent — any creative request, professional output",
     lifespan=lifespan,
 )
 

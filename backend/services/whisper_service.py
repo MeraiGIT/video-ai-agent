@@ -2,6 +2,7 @@ from faster_whisper import WhisperModel
 from config import settings
 from utils.file_manager import get_job_path
 from utils.srt import write_srt
+from services.caption_styles import write_word_srt
 
 _model = None
 
@@ -25,4 +26,18 @@ def transcribe_to_srt(audio_path: str, job_id: str) -> str:
     segments_list = list(segments)
     srt_path = get_job_path(job_id, "captions.srt")
     write_srt(segments_list, srt_path)
+    return srt_path
+
+
+def transcribe_to_word_srt(audio_path: str, job_id: str) -> str:
+    """Transcribe audio to a word-by-word SRT file.
+
+    Each word gets its own SRT entry with precise start/end times.
+    Useful for karaoke-style or word-highlight captions.
+    """
+    model = _get_model()
+    segments, _info = model.transcribe(audio_path, word_timestamps=True)
+    segments_list = list(segments)
+    srt_path = get_job_path(job_id, "captions_words.srt")
+    write_word_srt(segments_list, srt_path)
     return srt_path

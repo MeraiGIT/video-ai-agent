@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     FAL_KEY: str
     ELEVENLABS_API_KEY: str
     KIE_AI_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
+    TAVILY_API_KEY: str = ""
+    NANANA_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "JBFqnCBsd6RMkjVDRZzb"
     WHISPER_MODEL_SIZE: str = "base"
     WORK_DIR: str = os.path.join(os.path.dirname(__file__), "workspace")
