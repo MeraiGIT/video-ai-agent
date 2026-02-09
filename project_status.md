@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 9 complete
-**Current phase**: All phases complete
+**Last updated**: Post-Phase 9 production readiness fixes
+**Current phase**: All phases complete + production readiness fixes
 
 ---
 
@@ -26,22 +26,25 @@
 
 ## Current State
 
-### What Works (v1)
-- 14-node LangGraph pipeline (video-only): analyze → script → scenes → images → videos → voiceover → assemble → captions
-- SSE + REST communication with human-in-the-loop interrupts
-- Image gen (Seedream 4.5, FLUX Dev), Video gen (Veo 3.1, Seedance 1.5, Kling 3.0, Kling O1 Ref)
-- ElevenLabs TTS, faster-whisper transcription, FFmpeg assembly
-- Next.js frontend with chat, artifact renderers, history page
-- Supabase project history and media tracking
+### What Works (v3 — Universal)
+- 17-node LangGraph pipeline (8 phases): INTAKE → RESEARCH → CREATIVE DIRECTION → BLUEPRINT → PRODUCE → ASSEMBLE → POLISH → DELIVER
+- Universal content creation: any creative request, not just video
+- SSE + REST communication with human-in-the-loop interrupts at 7 approval stages
+- Dynamic capability execution: 20 capabilities (generation, processing, analysis)
+- Image gen (Seedream 4.5, Nano Banana Pro), Video gen (Veo 3.1, Seedance 1.5, Kling 3.0)
+- ElevenLabs TTS/SFX/voice clone, faster-whisper transcription, FFmpeg assembly
+- Gemini 2.5 Pro vision-mode quality evaluation (sees images, watches video, listens to audio)
+- Budget variants (3 tiers) with cost tracking, enforcement at 1.5x, warnings at 80%
+- Tavily web research, Claude creative direction with brain prompt
+- Next.js frontend with chat, pipeline sidebar, artifact renderers, budget selector, history page
+- Long-form chunking (5-min chapters)
+- Supabase project history with universal schema (optional)
 
-### What's Planned (v3)
-- Universal content creation (any creative request, not just video)
-- 8-phase pipeline with 16 nodes
-- Dynamic capability execution via LLM-generated production plans
-- Gemini 2.5 Pro vision-mode quality evaluation
-- Budget variants (3 tiers) with cost tracking
-- Pipeline visualization sidebar
-- Long-form chunking (5-min segments)
+### What Needs Testing
+- Full end-to-end run with a real creative request
+- Cross-content-type testing (video, graphic design, podcast, motion graphics)
+- Long-form content (>5 min) with chapter splitting
+- Budget tier selection and enforcement through full pipeline
 
 ---
 
@@ -66,4 +69,6 @@
 
 ## Next Actions
 
-- All phases complete. System ready for end-to-end testing.
+- Run first end-to-end test with a real creative request
+- Test with multiple content types (short video, graphic design, podcast)
+- Set up Supabase tables using `backend/supabase_schema.sql` (optional)

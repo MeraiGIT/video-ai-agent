@@ -44,6 +44,26 @@
 
 ---
 
+## [Post-Phase 9] — Production Readiness Fixes — 2026-02-09
+
+### Fixed
+- **CRITICAL**: Budget selection flow was broken — BudgetSelector sends `action: "modify"` with `message: "approve:tier"`, but `review_direction.py` only checked `action == "approve"`. Added message parsing to detect "approve:" prefix, extract tier name, and reroute to approval flow. Without this fix, budget selection would loop forever.
+- `review_direction.py` — Now checks multiple field names for tier selection (`selected_tier`, `selected_variant`, `tier`) for frontend flexibility
+
+### Added
+- `backend/supabase_schema.sql` — Complete Supabase schema DDL for the AI Production Studio (projects table with JSONB columns for creative_brief/production_plan/blueprint/pipeline_stages/cost_breakdown, media table with stage/model_used/cost tracking, indexes)
+- `.env.example` — Added GOOGLE_API_KEY, TAVILY_API_KEY, NANANA_API_KEY with descriptions
+
+### Technical Details
+- Budget selection fix: `review_direction.py` lines 41-47 parse `message.startswith("approve:")` to extract tier from modify-path budget selections
+- Supabase schema: `CREATE TABLE IF NOT EXISTS` for both tables, indexes on project_id/status/created_at, ON DELETE CASCADE for media→projects
+
+### Tested
+- Backend: Graph compiles (17 nodes)
+- Frontend: `npm run build` passes with zero errors
+
+---
+
 ## [Phase 9] — Testing + Polish — 2026-02-09
 
 ### Changed

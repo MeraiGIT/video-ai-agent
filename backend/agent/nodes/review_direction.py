@@ -38,9 +38,22 @@ def run(state: ProductionState) -> dict:
 
     action = response.get("action", "approve")
 
+    # Handle budget selection sent via modify path (e.g., "approve:budget")
+    message = response.get("message", "")
+    if action == "modify" and message.startswith("approve:"):
+        action = "approve"
+        tier_from_message = message.split(":", 1)[1].strip()
+        if tier_from_message:
+            response = {**response, "selected_tier": tier_from_message}
+
     if action == "approve":
-        # Extract selected budget tier
-        selected_tier = response.get("selected_variant", response.get("tier", "standard"))
+        # Extract selected budget tier — check multiple field names for flexibility
+        selected_tier = (
+            response.get("selected_tier")
+            or response.get("selected_variant")
+            or response.get("tier")
+            or "standard"
+        )
         logger.info("Direction approved with %s tier", selected_tier)
 
         # Apply selected variant's model selections to production plan
