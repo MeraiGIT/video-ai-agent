@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 7 complete
-**Current phase**: Phase 7 done, starting Phase 8
+**Last updated**: Phase 8 complete
+**Current phase**: Phase 8 done, starting Phase 9
 
 ---
 
@@ -19,7 +19,7 @@
 | 5 | Frontend Pipeline Sidebar | **Complete** | 7 files | 3 new components, page layout + useSession + types updated, frontend builds |
 | 6 | Long-Form Chunking | **Complete** | 5 files | Blueprint prompt, produce node chunk-aware, review_stage chunk display, ChunkProgress component, builds pass |
 | 7 | History + Persistence | **Complete** | 7 files | Auto-save at phase boundaries, universal project schema, frontend history universal |
-| 8 | API Routes + Session Mgmt | Not started | — | — |
+| 8 | API Routes + Session Mgmt | **Complete** | 7 files | Simplified session store, expanded schemas, new artifact renderers, quality_gate SSE, selectBudget action |
 | 9 | Testing + Polish | Not started | — | — |
 
 ---
@@ -66,5 +66,4 @@
 
 ## Next Actions
 
-1. Phase 8: API Routes + Session Management — enhanced SSE + upload endpoint
-2. Phase 9: Testing + Polish — end-to-end tests, error handling
+1. Phase 9: Testing + Polish — end-to-end tests, error handling

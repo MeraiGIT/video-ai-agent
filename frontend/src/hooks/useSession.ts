@@ -91,6 +91,14 @@ export function useSession() {
         }));
       });
 
+      es.addEventListener("quality_gate", (e: MessageEvent) => {
+        const data = JSON.parse(e.data);
+        addChatItem({
+          kind: "artifact",
+          item: { id: nextId(), type: "quality_report", data },
+        });
+      });
+
       es.addEventListener("error", (e: Event) => {
         if (e instanceof MessageEvent) {
           try {
@@ -188,6 +196,20 @@ export function useSession() {
     [sessionId, addChatItem]
   );
 
+  const selectBudget = useCallback(
+    async (tier: string) => {
+      if (!sessionId) return;
+      setIsProcessing(true);
+      setAwaiting(null);
+      addChatItem({
+        kind: "message",
+        item: { id: nextId(), role: "user", content: `Selected ${tier} budget tier` },
+      });
+      await resumeSession(sessionId, "approve", { selected_tier: tier });
+    },
+    [sessionId, addChatItem]
+  );
+
   const reset = useCallback(() => {
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
@@ -216,6 +238,7 @@ export function useSession() {
     approve,
     modify,
     regenerate,
+    selectBudget,
     reset,
   };
 }

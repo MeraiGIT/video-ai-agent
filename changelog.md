@@ -44,6 +44,30 @@
 
 ---
 
+## [Phase 8] — API Routes + Session Management — 2026-02-09
+
+### Changed
+- `backend/agent/session_store.py` — Simplified `create_session()` to remove legacy `video_model`/`concat_enabled` params; now only takes session_id + topic
+- `backend/api/schemas.py` — Expanded `ResumeRequest.action` to include `"answer"` (interview) and `"select_budget"` in addition to approve/modify/regenerate
+- `backend/api/routes.py` — Updated `create_new_session()` to match simplified session_store, added audio MIME types to upload whitelist (mpeg, wav, mp4, ogg, webm), added wav/ogg/webm to media type mapping
+- `frontend/src/lib/types.ts` — Added `"metadata"` and `"chunk_progress"` to ChatArtifact type union
+- `frontend/src/hooks/useSession.ts` — Added `quality_gate` SSE event handler (renders as quality_report artifact), added `selectBudget()` action, exported from hook
+- `frontend/src/components/chat/ChatView.tsx` — Added artifact renderers for `quality_report` (score bar with pass/fail), `metadata` (title/description/hashtags), `chunk_progress` (chapter progress indicator); imported ChunkProgress component
+
+### Technical Details
+- Backend session store simplified: LangGraph MemorySaver handles all state; session_store only tracks asyncio.Queue + topic
+- ResumeRequest now accepts 5 action types covering all interrupt stages
+- Audio uploads now supported (for voice reference, podcast input, etc.)
+- Quality gate SSE events (`quality_gate`) are rendered inline as visual score bars
+- Metadata artifact shows delivery info (title, description, hashtags) in a clean card
+- Chunk progress delegates to existing ChunkProgress component
+
+### Tested
+- Backend: Graph compiles (17 nodes), session_store simplified, routes match
+- Frontend: `npm run build` passes with zero errors (fixed TypeScript narrowing on metadata.title)
+
+---
+
 ## [Phase 7] — History + Persistence — 2026-02-09
 
 ### Changed

@@ -14,10 +14,12 @@ class CreateSessionResponse(BaseModel):
 
 
 class ResumeRequest(BaseModel):
-    action: Literal["approve", "modify", "regenerate"]
+    action: Literal["approve", "modify", "regenerate", "answer", "select_budget"]
     payload: Optional[dict] = None
     # For modify: {"message": "make it more funny"}
     # For regenerate: {"indices": [0, 2]}
+    # For answer: {"answers": [...]} (interview follow-up)
+    # For select_budget: {"tier": "standard"}
 
 
 class UploadResponse(BaseModel):

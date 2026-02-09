@@ -25,6 +25,7 @@ MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 ALLOWED_UPLOAD_TYPES = {
     "image/jpeg", "image/png", "image/webp", "image/gif",
     "video/mp4", "video/quicktime", "video/webm",
+    "audio/mpeg", "audio/wav", "audio/mp4", "audio/ogg", "audio/webm",
 }
 
 
@@ -76,8 +77,6 @@ async def create_new_session(body: CreateSessionRequest):
     create_session(
         session_id=session_id,
         topic=body.topic,
-        video_model=body.video_model or "auto",
-        concat_enabled=body.concat_enabled if body.concat_enabled is not None else True,
     )
 
     # Build initial state for the universal production pipeline
@@ -238,9 +237,12 @@ async def serve_media(session_id: str, filename: str):
         "webp": "image/webp",
         "mp4": "video/mp4",
         "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
         "srt": "text/plain",
         "gif": "image/gif",
         "mov": "video/quicktime",
+        "webm": "video/webm",
     }
     media_type = media_types.get(ext, "application/octet-stream")
 

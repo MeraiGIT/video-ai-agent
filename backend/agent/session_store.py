@@ -13,15 +13,11 @@ _sessions: dict[str, dict] = {}
 def create_session(
     session_id: str,
     topic: str,
-    video_model: str,
-    concat_enabled: bool,
 ) -> dict:
     """Create a new session with an event queue."""
     session = {
         "id": session_id,
         "topic": topic,
-        "video_model": video_model,
-        "concat_enabled": concat_enabled,
         "queue": asyncio.Queue(),
     }
     _sessions[session_id] = session

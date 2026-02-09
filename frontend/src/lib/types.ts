@@ -44,7 +44,9 @@ export interface ChatArtifact {
     | "creative_brief"
     | "budget_variants"
     | "blueprint"
-    | "quality_report";
+    | "quality_report"
+    | "metadata"
+    | "chunk_progress";
   data: Record<string, unknown>;
 }
 

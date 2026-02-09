@@ -11,6 +11,7 @@ import FinalVideo from "@/components/artifacts/FinalVideo";
 import CreativeBriefCard from "@/components/artifacts/CreativeBriefCard";
 import BudgetSelector from "@/components/artifacts/BudgetSelector";
 import BlueprintViewer from "@/components/artifacts/BlueprintViewer";
+import ChunkProgress from "@/components/artifacts/ChunkProgress";
 import ProgressIndicator from "@/components/artifacts/ProgressIndicator";
 import InputBar from "@/components/input/InputBar";
 
@@ -163,6 +164,73 @@ export default function ChatView({
             onSelect={(tier) => {
               onModify(`approve:${tier}`);
             }}
+          />
+        );
+
+      case "quality_report": {
+        const score = data.score as number;
+        const step = data.step as string || "Quality Check";
+        const passed = data.passed as boolean;
+        const threshold = data.threshold as number || 7;
+        return (
+          <div className={`mx-2 px-4 py-3 rounded-xl border ${
+            passed
+              ? "bg-emerald-950/30 border-emerald-800/30"
+              : "bg-amber-950/30 border-amber-800/30"
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-300">{step}</span>
+              <span className={`text-sm font-mono font-bold ${
+                passed ? "text-emerald-400" : "text-amber-400"
+              }`}>
+                {score?.toFixed(1)}/10
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  passed ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+                style={{ width: `${(score / 10) * 100}%` }}
+              />
+            </div>
+            <p className="mt-1 text-[10px] text-gray-500">
+              Threshold: {threshold}/10 {passed ? "— Passed" : "— Needs improvement"}
+            </p>
+          </div>
+        );
+      }
+
+      case "metadata": {
+        const meta = (data.metadata || {}) as { title?: string; description?: string; hashtags?: string[] };
+        return (
+          <div className="mx-2 px-4 py-3 rounded-xl bg-gray-900/50 border border-gray-800/50">
+            <h4 className="text-xs font-medium text-gray-400 mb-2">Delivery Metadata</h4>
+            {meta.title && (
+              <p className="text-sm font-medium text-white mb-1">{meta.title}</p>
+            )}
+            {meta.description && (
+              <p className="text-xs text-gray-400 mb-2">{meta.description}</p>
+            )}
+            {Array.isArray(meta.hashtags) && meta.hashtags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {meta.hashtags.map((tag, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case "chunk_progress":
+        return (
+          <ChunkProgress
+            currentChunk={data.current_chunk as number || 0}
+            totalChunks={data.total_chunks as number || 1}
+            chapterTitle={data.chapter_title as string | undefined}
           />
         );
 
