@@ -12,7 +12,7 @@ from api.schemas import (
     CreateSessionRequest, CreateSessionResponse, ResumeRequest, UploadResponse,
 )
 from agent.graph import graph
-from agent.state import VideoState
+from agent.state import ProductionState
 from agent.session_store import create_session, get_session
 from services import supabase_service
 from utils.file_manager import get_job_path
@@ -76,16 +76,14 @@ async def create_new_session(body: CreateSessionRequest):
     create_session(
         session_id=session_id,
         topic=body.topic,
-        video_model=body.video_model,
-        concat_enabled=body.concat_enabled,
+        video_model=body.video_model or "auto",
+        concat_enabled=body.concat_enabled if body.concat_enabled is not None else True,
     )
 
-    # Build initial state
-    initial_state: VideoState = {
+    # Build initial state for the universal production pipeline
+    initial_state: dict = {
         "job_id": session_id,
-        "input_topic": body.topic,
-        "video_model": body.video_model,
-        "concat_enabled": body.concat_enabled,
+        "user_request": body.topic,
         "progress_messages": [],
     }
 

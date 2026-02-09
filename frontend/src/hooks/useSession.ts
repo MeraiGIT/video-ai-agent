@@ -7,7 +7,6 @@ import type {
   ProgressUpdate,
   AwaitingState,
   SessionStage,
-  VideoModel,
 } from "@/lib/types";
 import { createSession, resumeSession, getEventStreamUrl } from "@/lib/api";
 
@@ -100,8 +99,6 @@ export function useSession() {
   const start = useCallback(
     async (
       topic: string,
-      model: VideoModel,
-      concatEnabled: boolean,
       uploadedFileUrls?: string[]
     ) => {
       setIsProcessing(true);
@@ -111,7 +108,7 @@ export function useSession() {
       setCurrentProgress(null);
 
       try {
-        const sid = await createSession(topic, model, concatEnabled, uploadedFileUrls);
+        const sid = await createSession(topic, uploadedFileUrls);
         setSessionId(sid);
         connectSSE(sid);
       } catch (err) {

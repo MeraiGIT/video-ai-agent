@@ -44,6 +44,29 @@
 
 ---
 
+## [Phase 1] — Intake + Interview — 2026-02-09
+
+### Added
+- `backend/agent/prompts/intake.py` — Intake classification prompt (injects capability registry, returns structured JSON with content_type, platform, audience, constraints)
+- `backend/agent/prompts/interview.py` — Smart follow-up questions prompt (production team interview pattern, 2-4 questions prioritized by impact)
+- `backend/agent/nodes/intake.py` — REWRITTEN: Classifies any creative request via Claude, analyzes uploads with Gemini vision, extracts structured project details
+- `backend/agent/nodes/interview.py` — REWRITTEN: Generates follow-up questions, handles interrupt(), decides research_needed
+
+### Changed
+- `backend/api/schemas.py` — Made video_model and concat_enabled optional (agent chooses now)
+- `backend/api/routes.py` — Uses ProductionState with user_request instead of VideoState with input_topic
+- `frontend/src/lib/types.ts` — REWRITTEN: Removed VideoModel/VIDEO_MODELS, added PipelineStage, BudgetVariant, CreativeBrief, new artifact types
+- `frontend/src/lib/api.ts` — Simplified createSession (no model/concat params)
+- `frontend/src/hooks/useSession.ts` — Removed VideoModel dependency, simplified start() signature
+- `frontend/src/components/TopicForm.tsx` — Removed model selector and concat toggle, universal creative brief input with richer placeholder, audio file support
+
+### Tested
+- Backend: Graph compiles (17 nodes), intake prompt builds (4026 chars with capabilities), interview prompt builds (1436 chars)
+- Frontend: `npm run build` passes with zero errors
+- API schemas accept requests without video_model/concat_enabled
+
+---
+
 ## [Phase 0] — Foundation — 2026-02-09
 
 ### Added

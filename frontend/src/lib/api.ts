@@ -2,14 +2,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function createSession(
   topic: string,
-  videoModel: string,
-  concatEnabled: boolean,
   uploadedFileUrls?: string[]
 ): Promise<string> {
   const body: Record<string, unknown> = {
     topic,
-    video_model: videoModel,
-    concat_enabled: concatEnabled,
   };
   if (uploadedFileUrls && uploadedFileUrls.length > 0) {
     body.uploaded_file_urls = uploadedFileUrls;

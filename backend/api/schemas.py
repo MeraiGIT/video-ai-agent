@@ -3,9 +3,9 @@ from pydantic import BaseModel
 
 
 class CreateSessionRequest(BaseModel):
-    topic: str
-    video_model: Literal["seedance", "veo", "kling", "kling_ref"] = "seedance"
-    concat_enabled: bool = True
+    topic: str  # user's creative request (universal)
+    video_model: Optional[str] = None  # legacy — ignored in v3
+    concat_enabled: Optional[bool] = None  # legacy — ignored in v3
     uploaded_file_urls: Optional[list[str]] = None
 
 

@@ -1,15 +1,29 @@
-export type VideoModel = "seedance" | "veo" | "kling" | "kling_ref";
+// === Session & Pipeline ===
 
 export type SessionStage =
   | "topic_input"
-  | "script_review"
-  | "scenes_review"
-  | "images_review"
-  | "videos_review"
-  | "voiceover_review"
+  | "intake"
+  | "interview"
+  | "research"
+  | "creative_direction"
+  | "blueprint"
+  | "producing"
+  | "quality_gate"
   | "assembly"
+  | "polish"
+  | "deliver"
   | "complete"
   | "error";
+
+export interface PipelineStage {
+  name: string;
+  status: "pending" | "active" | "completed" | "failed";
+  cost?: number;
+  assetsCount?: number;
+  substeps?: { name: string; status: string }[];
+}
+
+// === Chat ===
 
 export interface ChatMessage {
   id: string;
@@ -26,7 +40,11 @@ export interface ChatArtifact {
     | "video"
     | "voiceover"
     | "final_video"
-    | "individual_videos";
+    | "individual_videos"
+    | "creative_brief"
+    | "budget_variants"
+    | "blueprint"
+    | "quality_report";
   data: Record<string, unknown>;
 }
 
@@ -46,46 +64,37 @@ export type ChatItem =
   | { kind: "message"; item: ChatMessage }
   | { kind: "artifact"; item: ChatArtifact };
 
+// === Files ===
+
 export interface UploadedFile {
   url: string;
   type: string;
   filename: string;
-  preview?: string; // local object URL for preview
+  preview?: string;
 }
 
-export const VIDEO_MODELS: {
-  id: VideoModel;
-  name: string;
-  description: string;
-  cost: string;
-  provider: string;
-}[] = [
-  {
-    id: "seedance",
-    name: "Seedance 1.5 Pro",
-    description: "ByteDance - Highest quality, natural motion",
-    cost: "~$0.26/scene",
-    provider: "fal.ai",
-  },
-  {
-    id: "veo",
-    name: "Google Veo 3.1 Fast",
-    description: "Google DeepMind - Best value",
-    cost: "~$0.10/scene",
-    provider: "Kie AI",
-  },
-  {
-    id: "kling",
-    name: "Kling 2.6",
-    description: "Kuaishou - Good quality, extended duration",
-    cost: "~$0.15/scene",
-    provider: "Kie AI",
-  },
-  {
-    id: "kling_ref",
-    name: "Kling O1 (Character Ref)",
-    description: "Character consistency with reference images",
-    cost: "~$0.56/scene",
-    provider: "fal.ai",
-  },
-];
+// === Creative Direction ===
+
+export interface BudgetVariant {
+  tier: "budget" | "standard" | "premium";
+  totalEstimate: number;
+  modelSelections: Record<string, string>;
+  costBreakdown: {
+    step: string;
+    model: string;
+    count: number;
+    unitCost: number;
+    total: number;
+  }[];
+  tradeoffs: string;
+}
+
+export interface CreativeBrief {
+  summary: string;
+  contentType: string;
+  platform: string;
+  audience: string;
+  tone: string;
+  style: string;
+  keyMessages: string[];
+}

@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 0 complete
-**Current phase**: Phase 0 done, starting Phase 1
+**Last updated**: Phase 1 complete
+**Current phase**: Phase 1 done, starting Phase 2
 
 ---
 
@@ -12,7 +12,7 @@
 | Phase | Name | Status | Files Changed | Tests |
 |-------|------|--------|---------------|-------|
 | 0 | Foundation | **Complete** | 25+ files | Graph compiles, all imports pass |
-| 1 | Intake + Interview | Not started | — | — |
+| 1 | Intake + Interview | **Complete** | 10 files | Backend+frontend compile, prompts build |
 | 2 | Research + Creative Direction | Not started | — | — |
 | 3 | Blueprint + Production Executor | Not started | — | — |
 | 4 | Assembly + Polish + Deliver | Not started | — | — |
