@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Phase 4 complete
-**Current phase**: Phase 4 done, starting Phase 5
+**Last updated**: Phase 5 complete
+**Current phase**: Phase 5 done, starting Phase 6
 
 ---
 
@@ -16,7 +16,7 @@
 | 2 | Research + Creative Direction | **Complete** | 9 files | Backend+frontend compile, prompts build, model context injects |
 | 3 | Blueprint + Production Executor | **Complete** | 28 files | All 20 capabilities + 5 nodes + 2 prompts + frontend component compile |
 | 4 | Assembly + Polish + Deliver | **Complete** | 6 files | All 6 nodes import, graph compiles (17 nodes), frontend builds |
-| 5 | Frontend Pipeline Sidebar | Not started | — | — |
+| 5 | Frontend Pipeline Sidebar | **Complete** | 7 files | 3 new components, page layout + useSession + types updated, frontend builds |
 | 6 | Long-Form Chunking | Not started | — | — |
 | 7 | History + Persistence | Not started | — | — |
 | 8 | API Routes + Session Mgmt | Not started | — | — |
@@ -66,6 +66,6 @@
 
 ## Next Actions
 
-1. Phase 5: Frontend Pipeline Sidebar — visual progress, cost tracking
-2. Phase 6: Long-Form Chunking — 5-minute chapter processing
-3. Phase 7: History + Persistence — Supabase schema, auto-save
+1. Phase 6: Long-Form Chunking — 5-minute chapter processing
+2. Phase 7: History + Persistence — Supabase schema, auto-save
+3. Phase 8: API Routes + Session Management — enhanced SSE + upload endpoint

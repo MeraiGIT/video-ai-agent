@@ -7,6 +7,8 @@ import type {
   ProgressUpdate,
   AwaitingState,
   SessionStage,
+  PipelineStage,
+  CostTracking,
 } from "@/lib/types";
 import { createSession, resumeSession, getEventStreamUrl } from "@/lib/api";
 
@@ -25,6 +27,12 @@ export function useSession() {
   const [stage, setStage] = useState<SessionStage>("topic_input");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [costTracking, setCostTracking] = useState<CostTracking>({
+    totalCost: 0,
+    budgetLimit: 0,
+    breakdown: [],
+  });
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const addChatItem = useCallback((item: ChatItem) => {
@@ -67,6 +75,22 @@ export function useSession() {
         setCurrentProgress(null);
       });
 
+      es.addEventListener("pipeline_update", (e: MessageEvent) => {
+        const data = JSON.parse(e.data);
+        if (Array.isArray(data.stages)) {
+          setPipelineStages(data.stages as PipelineStage[]);
+        }
+      });
+
+      es.addEventListener("cost_update", (e: MessageEvent) => {
+        const data = JSON.parse(e.data);
+        setCostTracking((prev) => ({
+          totalCost: data.total_cost ?? prev.totalCost,
+          budgetLimit: data.budget_limit ?? prev.budgetLimit,
+          breakdown: data.breakdown ?? prev.breakdown,
+        }));
+      });
+
       es.addEventListener("error", (e: Event) => {
         if (e instanceof MessageEvent) {
           try {
@@ -106,6 +130,8 @@ export function useSession() {
       setChatItems([]);
       setAwaiting(null);
       setCurrentProgress(null);
+      setPipelineStages([]);
+      setCostTracking({ totalCost: 0, budgetLimit: 0, breakdown: [] });
 
       try {
         const sid = await createSession(topic, uploadedFileUrls);
@@ -172,6 +198,8 @@ export function useSession() {
     setStage("topic_input");
     setIsProcessing(false);
     setError(null);
+    setPipelineStages([]);
+    setCostTracking({ totalCost: 0, budgetLimit: 0, breakdown: [] });
   }, []);
 
   return {
@@ -182,6 +210,8 @@ export function useSession() {
     stage,
     isProcessing,
     error,
+    pipelineStages,
+    costTracking,
     start,
     approve,
     modify,

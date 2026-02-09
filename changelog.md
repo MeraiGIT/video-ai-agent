@@ -44,6 +44,25 @@
 
 ---
 
+## [Phase 5] — Frontend Pipeline Sidebar — 2026-02-09
+
+### Added
+- `frontend/src/components/pipeline/PipelineSidebar.tsx` — NEW (~90 lines): Vertical phase list with overall progress bar, default 8 stages, click-to-scroll on completed stages, cost tracker at bottom
+- `frontend/src/components/pipeline/StageCard.tsx` — NEW (~90 lines): Individual phase card with status icons (pending/active/completed/failed), substep progress dots, cost badge, asset count
+- `frontend/src/components/pipeline/CostTracker.tsx` — NEW (~60 lines): Running cost vs budget visualization, color-coded bar (green→amber→red), warning messages at 80% and 100%
+
+### Changed
+- `frontend/src/lib/types.ts` — Added `CostTracking` interface with totalCost, budgetLimit, breakdown
+- `frontend/src/hooks/useSession.ts` — Added `pipelineStages` and `costTracking` state, `pipeline_update` and `cost_update` SSE event handlers, state reset on start/reset
+- `frontend/src/app/page.tsx` — Flexbox layout with PipelineSidebar on left, chat area on right; sidebar hidden on topic form; renamed "New Video" → "New Project"
+
+### Tested
+- Frontend: `npm run build` passes with zero errors
+- All 3 new pipeline components import and render
+- SSE event handlers for pipeline_update and cost_update wired up
+
+---
+
 ## [Phase 4] — Assembly + Polish + Deliver — 2026-02-09
 
 ### Added

@@ -73,6 +73,14 @@ export interface UploadedFile {
   preview?: string;
 }
 
+// === Cost Tracking ===
+
+export interface CostTracking {
+  totalCost: number;
+  budgetLimit: number;
+  breakdown: { step: string; model: string; count: number; unitCost: number; total: number }[];
+}
+
 // === Creative Direction ===
 
 export interface BudgetVariant {
