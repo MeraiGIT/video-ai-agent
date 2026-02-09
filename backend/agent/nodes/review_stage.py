@@ -10,6 +10,7 @@ from langgraph.config import get_stream_writer
 from langgraph.types import interrupt
 
 from agent.state import ProductionState
+from services.supabase_service import save_project_state
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +97,14 @@ def run(state: ProductionState) -> dict:
                     "content": "All production approved! Moving to assembly...",
                 },
             })
-            return {
+            result = {
                 "status": "all_stages_complete",
                 "progress_messages": ["All production stages approved — moving to assembly"],
             }
+            project_id = state.get("project_id")
+            if project_id:
+                save_project_state(project_id, {**dict(state), **result})
+            return result
 
         logger.info("Stage approved, continuing production")
         writer({
@@ -109,10 +114,14 @@ def run(state: ProductionState) -> dict:
                 "content": "Approved! Continuing production...",
             },
         })
-        return {
+        result = {
             "status": "stage_approved",
             "progress_messages": [f"Stage approved — continuing ({stage_idx}/{len(plan)} done)"],
         }
+        project_id = state.get("project_id")
+        if project_id:
+            save_project_state(project_id, {**dict(state), **result})
+        return result
 
     if action == "regenerate":
         # User wants to regenerate specific items

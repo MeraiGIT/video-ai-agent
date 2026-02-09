@@ -13,6 +13,9 @@ dist/
 # Workspace (generated videos/images)
 workspace/
 
+# LangGraph checkpoints (persistent graph state)
+checkpoints.db
+
 # Node
 node_modules/
 .next/

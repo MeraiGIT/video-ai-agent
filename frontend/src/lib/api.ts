@@ -64,11 +64,18 @@ export interface Project {
   name: string;
   topic: string;
   content_type?: string;
+  session_id?: string;
   video_model?: string;
   concat_enabled?: boolean;
   status: string;
   total_cost?: number;
   thumbnail_url: string | null;
+  creative_brief?: Record<string, unknown>;
+  production_plan?: Record<string, unknown>[];
+  blueprint?: Record<string, unknown>;
+  pipeline_stages?: Record<string, unknown>[];
+  cost_breakdown?: Record<string, unknown>[];
+  target_platform?: string;
   created_at: string;
   completed_at: string | null;
 }
@@ -76,12 +83,25 @@ export interface Project {
 export interface MediaItem {
   id: string;
   project_id: string;
-  type: "image" | "video" | "voiceover" | "final_video" | "script";
+  type: string;
   storage_path: string | null;
   public_url: string | null;
   filename: string | null;
   scene_number: number | null;
+  stage: string | null;
+  model_used: string | null;
+  cost: number | null;
   metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ChatEvent {
+  id: string;
+  project_id: string;
+  session_id: string;
+  event_type: string;
+  data: Record<string, unknown>;
+  ordinal: number;
   created_at: string;
 }
 
@@ -114,4 +134,32 @@ export async function deleteMediaItem(mediaId: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete media: ${res.status}`);
+}
+
+// ── Resume / Chat / Abandon ──────────────────────────────────
+
+export async function resumeProject(
+  projectId: string
+): Promise<{ session_id: string; status: string }> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/resume`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to resume project: ${res.status}`);
+  return res.json();
+}
+
+export async function getProjectChat(
+  projectId: string
+): Promise<ChatEvent[]> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/chat`);
+  if (!res.ok) throw new Error(`Failed to get chat: ${res.status}`);
+  const data = await res.json();
+  return data.events;
+}
+
+export async function abandonProject(projectId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/abandon`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to abandon project: ${res.status}`);
 }

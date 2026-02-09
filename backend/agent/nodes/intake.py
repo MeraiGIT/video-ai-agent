@@ -12,6 +12,7 @@ from langgraph.config import get_stream_writer
 from agent.state import ProductionState
 from agent.prompts.intake import INTAKE_SYSTEM, build_intake_prompt
 from services.claude_service import client, MODEL
+from services.supabase_service import create_project
 
 logger = logging.getLogger(__name__)
 
@@ -139,18 +140,39 @@ def run(state: ProductionState) -> dict:
 
     needs_interview = classification.get("needs_interview", True)
 
+    project_name = classification.get("project_name", user_request[:50])
+    job_id = state.get("job_id", "")
+
     result: dict = {
         "content_type": content_type,
         "target_platform": platform,
         "target_audience": classification.get("target_audience", "general"),
         "constraints": classification.get("constraints", {}),
         "reference_materials": classification.get("reference_materials", []),
-        "project_name": classification.get("project_name", user_request[:50]),
+        "project_name": project_name,
         "interview_complete": not needs_interview,
         "research_needed": classification.get("needs_research", False),
         "status": "intake_complete",
         "progress_messages": [f"Intake: {content_type} for {platform}"],
     }
+
+    # Create Supabase project record (links to this session via job_id)
+    project_record = create_project(
+        name=project_name,
+        topic=user_request[:500],
+        content_type=content_type,
+        session_id=job_id,
+    )
+    if project_record:
+        result["project_id"] = project_record["id"]
+        writer({
+            "event": "project_created",
+            "data": {
+                "project_id": project_record["id"],
+                "project_name": project_name,
+            },
+        })
+        logger.info("Created Supabase project %s: %s", project_record["id"], project_name)
 
     # Store enriched file analyses back
     if file_analyses:

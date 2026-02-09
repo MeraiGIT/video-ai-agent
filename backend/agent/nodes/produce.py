@@ -12,6 +12,7 @@ from langgraph.config import get_stream_writer
 
 from agent.state import ProductionState
 from agent.capabilities.registry import get_capability_function, get_capability
+from services.supabase_service import create_media_record
 
 logger = logging.getLogger(__name__)
 
@@ -338,8 +339,15 @@ def _get_chunk_blueprint(blueprint: dict, current_chunk: int, total_chunks: int)
 
 
 def _store_results(results, output_type, capability_id, state, stage_idx, writer):
-    """Map capability results to the appropriate state fields."""
+    """Map capability results to the appropriate state fields.
+
+    Also creates Supabase media records for generated assets (images, videos, audio).
+    """
     updates: dict = {}
+    project_id = state.get("project_id")
+    plan = state.get("production_plan", [])
+    step = plan[stage_idx] if stage_idx < len(plan) else {}
+    stage_label = step.get("description", f"step_{stage_idx}")
 
     if output_type == "ImageAsset":
         images = list(state.get("images", []))
@@ -364,6 +372,18 @@ def _store_results(results, output_type, capability_id, state, stage_idx, writer
                     "total_scenes": len(results),
                 },
             })
+            # Persist to Supabase
+            if project_id:
+                create_media_record(
+                    project_id=project_id,
+                    media_type="image",
+                    public_url=r.get("url", ""),
+                    filename=r.get("local_path", "").rsplit("/", 1)[-1] if r.get("local_path") else None,
+                    stage=stage_label,
+                    model_used=r.get("model", ""),
+                    cost=r.get("cost", 0.0),
+                    scene_number=r.get("batch_index", i),
+                )
         updates["images"] = images
 
     elif output_type == "VideoAsset":
@@ -389,6 +409,18 @@ def _store_results(results, output_type, capability_id, state, stage_idx, writer
                     "total_scenes": len(results),
                 },
             })
+            if project_id:
+                create_media_record(
+                    project_id=project_id,
+                    media_type="video",
+                    public_url=r.get("url", ""),
+                    filename=r.get("local_path", "").rsplit("/", 1)[-1] if r.get("local_path") else None,
+                    stage=stage_label,
+                    model_used=r.get("model", ""),
+                    cost=r.get("cost", 0.0),
+                    scene_number=r.get("batch_index", i),
+                    metadata={"duration": r.get("duration", 0)},
+                )
         updates["videos"] = videos
 
     elif output_type == "audio_path":
@@ -410,6 +442,16 @@ def _store_results(results, output_type, capability_id, state, stage_idx, writer
             updates["sfx_paths"] = sfx_paths
         elif capability_id == "audio_mix":
             updates["mixed_audio_path"] = path
+        # Persist audio to Supabase
+        if project_id and path:
+            create_media_record(
+                project_id=project_id,
+                media_type=capability_id,
+                filename=path.rsplit("/", 1)[-1] if "/" in path else path,
+                stage=stage_label,
+                model_used=r.get("model", ""),
+                cost=r.get("cost", 0.0),
+            )
 
     elif output_type == "character_sheet":
         r = results[0] if results else {}

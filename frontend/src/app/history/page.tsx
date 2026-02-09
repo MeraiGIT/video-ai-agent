@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { Project, ProjectWithMedia } from "@/lib/api";
-import { getProjects, getProject, deleteProject } from "@/lib/api";
+import { getProjects, getProject, deleteProject, abandonProject } from "@/lib/api";
 import ProjectCard from "@/components/history/ProjectCard";
 import ProjectGallery from "@/components/history/ProjectGallery";
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] =
     useState<ProjectWithMedia | null>(null);
@@ -51,6 +53,24 @@ export default function HistoryPage() {
     }
   };
 
+  const handleContinue = (projectId: string) => {
+    router.push(`/?resume=${projectId}`);
+  };
+
+  const handleAbandon = async (projectId: string) => {
+    try {
+      await abandonProject(projectId);
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, status: "abandoned" } : p))
+      );
+      if (selectedProject?.id === projectId) {
+        setSelectedProject(null);
+      }
+    } catch {
+      setError("Failed to abandon project");
+    }
+  };
+
   const handleBack = () => {
     setSelectedProject(null);
     loadProjects();
@@ -62,6 +82,16 @@ export default function HistoryPage() {
         project={selectedProject}
         onBack={handleBack}
         onDeleteProject={() => handleDeleteProject(selectedProject.id)}
+        onContinue={
+          selectedProject.status === "in_progress"
+            ? () => handleContinue(selectedProject.id)
+            : undefined
+        }
+        onAbandon={
+          selectedProject.status === "in_progress"
+            ? () => handleAbandon(selectedProject.id)
+            : undefined
+        }
         onMediaDeleted={(mediaId) => {
           setSelectedProject((prev) =>
             prev
@@ -120,6 +150,11 @@ export default function HistoryPage() {
               project={project}
               onClick={() => handleOpenProject(project.id)}
               onDelete={() => handleDeleteProject(project.id)}
+              onContinue={
+                project.status === "in_progress"
+                  ? () => handleContinue(project.id)
+                  : undefined
+              }
             />
           ))}
         </div>

@@ -8,6 +8,8 @@ interface Props {
   project: ProjectWithMedia;
   onBack: () => void;
   onDeleteProject: () => void;
+  onContinue?: () => void;
+  onAbandon?: () => void;
   onMediaDeleted: (mediaId: string) => void;
 }
 
@@ -65,9 +67,21 @@ function MediaCard({
 
       {/* Labels */}
       <div className="px-3 py-2 flex items-center justify-between">
-        <span className="text-xs text-gray-500">
-          {item.scene_number ? `Scene ${item.scene_number}` : item.type.replace("_", " ")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">
+            {item.scene_number != null ? `Scene ${item.scene_number + 1}` : item.type.replace("_", " ")}
+          </span>
+          {item.model_used && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">
+              {item.model_used}
+            </span>
+          )}
+          {item.cost != null && item.cost > 0 && (
+            <span className="text-[10px] text-gray-600 font-mono">
+              ${item.cost.toFixed(2)}
+            </span>
+          )}
+        </div>
         {item.public_url && (
           <a
             href={item.public_url}
@@ -109,31 +123,60 @@ export default function ProjectGallery({
   project,
   onBack,
   onDeleteProject,
+  onContinue,
+  onAbandon,
   onMediaDeleted,
 }: Props) {
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
+  const [confirmAbandon, setConfirmAbandon] = useState(false);
 
   const handleDeleteMedia = async (mediaId: string) => {
     try {
       await deleteMediaItem(mediaId);
       onMediaDeleted(mediaId);
     } catch {
-      // Silently fail — could add toast
+      // Silently fail
     }
   };
 
-  // Group media by type
-  const images = project.media.filter((m) => m.type === "image").sort((a, b) => (a.scene_number || 0) - (b.scene_number || 0));
-  const videos = project.media.filter((m) => m.type === "video").sort((a, b) => (a.scene_number || 0) - (b.scene_number || 0));
-  const voiceover = project.media.find((m) => m.type === "voiceover");
-  const finalVideo = project.media.find((m) => m.type === "final_video");
-  const script = project.media.find((m) => m.type === "script");
+  // Group media by stage (pipeline-aware) — fallback to type for legacy projects
+  const hasStages = project.media.some((m) => m.stage);
+  const stageGroups: Record<string, MediaItem[]> = {};
+
+  if (hasStages) {
+    for (const item of project.media) {
+      const key = item.stage || "Other";
+      if (!stageGroups[key]) stageGroups[key] = [];
+      stageGroups[key].push(item);
+    }
+    // Sort items within each stage by scene_number
+    for (const items of Object.values(stageGroups)) {
+      items.sort((a, b) => (a.scene_number || 0) - (b.scene_number || 0));
+    }
+  } else {
+    // Legacy fallback: group by type
+    for (const item of project.media) {
+      const key = item.type || "Other";
+      if (!stageGroups[key]) stageGroups[key] = [];
+      stageGroups[key].push(item);
+    }
+    for (const items of Object.values(stageGroups)) {
+      items.sort((a, b) => (a.scene_number || 0) - (b.scene_number || 0));
+    }
+  }
 
   const date = new Date(project.created_at).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+
+  const statusColors: Record<string, string> = {
+    completed: "text-green-400",
+    in_progress: "text-blue-400",
+    failed: "text-red-400",
+    abandoned: "text-gray-400",
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -161,67 +204,78 @@ export default function ProjectGallery({
           <div>
             <h2 className="text-xl font-bold text-white">{project.name}</h2>
             <p className="text-sm text-gray-500">
-              {date} &middot; {project.video_model} &middot; {project.status.replace("_", " ")}
+              {date} &middot;{" "}
+              {project.content_type?.replace("_", " ") || "project"} &middot;{" "}
+              <span className={statusColors[project.status] || "text-gray-500"}>
+                {project.status.replace("_", " ")}
+              </span>
+              {project.total_cost != null && project.total_cost > 0 && (
+                <> &middot; ${project.total_cost.toFixed(2)}</>
+              )}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            if (confirmDeleteProject) {
-              onDeleteProject();
-            } else {
-              setConfirmDeleteProject(true);
-              setTimeout(() => setConfirmDeleteProject(false), 3000);
-            }
-          }}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-            confirmDeleteProject
-              ? "bg-red-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-red-400"
-          }`}
-        >
-          {confirmDeleteProject ? "Confirm Delete?" : "Delete Project"}
-        </button>
+        <div className="flex items-center gap-2">
+          {onContinue && (
+            <button
+              onClick={onContinue}
+              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition"
+            >
+              Continue
+            </button>
+          )}
+          {onAbandon && (
+            <button
+              onClick={() => {
+                if (confirmAbandon) {
+                  onAbandon();
+                  setConfirmAbandon(false);
+                } else {
+                  setConfirmAbandon(true);
+                  setTimeout(() => setConfirmAbandon(false), 3000);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                confirmAbandon
+                  ? "bg-orange-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-orange-400"
+              }`}
+            >
+              {confirmAbandon ? "Confirm Abandon?" : "Abandon"}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (confirmDeleteProject) {
+                onDeleteProject();
+              } else {
+                setConfirmDeleteProject(true);
+                setTimeout(() => setConfirmDeleteProject(false), 3000);
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              confirmDeleteProject
+                ? "bg-red-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:text-red-400"
+            }`}
+          >
+            {confirmDeleteProject ? "Confirm Delete?" : "Delete Project"}
+          </button>
+        </div>
       </div>
 
-      {/* Final Video */}
-      {finalVideo && (
-        <section className="mb-8">
+      {/* Media grouped by pipeline stage */}
+      {Object.entries(stageGroups).map(([stageName, items]) => (
+        <section key={stageName} className="mb-8">
           <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Final Video
+            {stageName.replace(/_/g, " ")} ({items.length})
           </h3>
-          <div className="max-w-2xl">
-            <MediaCard
-              item={finalVideo}
-              onDelete={() => handleDeleteMedia(finalVideo.id)}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Script */}
-      {script && (
-        <section className="mb-8">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Script
-          </h3>
-          <div className="max-w-2xl">
-            <MediaCard
-              item={script}
-              onDelete={() => handleDeleteMedia(script.id)}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Images */}
-      {images.length > 0 && (
-        <section className="mb-8">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Images ({images.length})
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {images.map((item) => (
+          <div className={`grid gap-3 ${
+            items.some((m) => m.type === "video" || m.type === "final_video")
+              ? "grid-cols-1 md:grid-cols-2"
+              : "grid-cols-2 md:grid-cols-3"
+          }`}>
+            {items.map((item) => (
               <MediaCard
                 key={item.id}
                 item={item}
@@ -230,40 +284,7 @@ export default function ProjectGallery({
             ))}
           </div>
         </section>
-      )}
-
-      {/* Videos */}
-      {videos.length > 0 && (
-        <section className="mb-8">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Scene Videos ({videos.length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {videos.map((item) => (
-              <MediaCard
-                key={item.id}
-                item={item}
-                onDelete={() => handleDeleteMedia(item.id)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Voiceover */}
-      {voiceover && (
-        <section className="mb-8">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-            Voiceover
-          </h3>
-          <div className="max-w-md">
-            <MediaCard
-              item={voiceover}
-              onDelete={() => handleDeleteMedia(voiceover.id)}
-            />
-          </div>
-        </section>
-      )}
+      ))}
 
       {project.media.length === 0 && (
         <div className="text-center py-16 text-gray-500">

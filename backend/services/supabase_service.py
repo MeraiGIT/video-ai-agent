@@ -40,13 +40,14 @@ def create_project(
     name: str,
     topic: str,
     content_type: str = "short_video",
+    session_id: str | None = None,
     video_model: str = "",
     concat_enabled: bool = False,
 ) -> dict | None:
     """Create a new project record.
 
     Supports both legacy fields (video_model, concat_enabled) and
-    new universal fields (content_type).
+    new universal fields (content_type). session_id links to LangGraph thread.
     """
     client = _get_client()
     if not client:
@@ -57,6 +58,8 @@ def create_project(
             "topic": topic,
             "content_type": content_type,
         }
+        if session_id:
+            row["session_id"] = session_id
         # Include legacy fields if provided (for backwards compat)
         if video_model:
             row["video_model"] = video_model
@@ -263,6 +266,93 @@ def delete_media(media_id: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"Failed to delete media {media_id}: {e}")
+        return False
+
+
+# ── File Upload ───────────────────────────────────────────────
+
+
+def get_project_by_session(session_id: str) -> dict | None:
+    """Look up a project by its session_id (LangGraph thread_id)."""
+    client = _get_client()
+    if not client:
+        return None
+    try:
+        result = (
+            client.table("projects")
+            .select("*")
+            .eq("session_id", session_id)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"Failed to get project by session {session_id}: {e}")
+        return None
+
+
+# ── Chat Persistence ─────────────────────────────────────────
+
+
+def save_chat_event(
+    project_id: str,
+    session_id: str,
+    event_type: str,
+    data: dict,
+    ordinal: int = 0,
+) -> dict | None:
+    """Save a single SSE event to the chat_messages table."""
+    client = _get_client()
+    if not client:
+        return None
+    try:
+        import json as _json
+
+        # Ensure data is JSON-serializable (handle nested objects)
+        serializable_data = _json.loads(_json.dumps(data, default=str))
+        row = {
+            "project_id": project_id,
+            "session_id": session_id,
+            "event_type": event_type,
+            "data": serializable_data,
+            "ordinal": ordinal,
+        }
+        result = client.table("chat_messages").insert(row).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"Failed to save chat event: {e}")
+        return None
+
+
+def get_chat_history(project_id: str) -> list[dict]:
+    """Get all chat events for a project, ordered by ordinal."""
+    client = _get_client()
+    if not client:
+        return []
+    try:
+        result = (
+            client.table("chat_messages")
+            .select("*")
+            .eq("project_id", project_id)
+            .order("ordinal")
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        logger.error(f"Failed to get chat history for {project_id}: {e}")
+        return []
+
+
+def delete_chat_history(project_id: str) -> bool:
+    """Delete all chat messages for a project (cleanup on completion/abandon)."""
+    client = _get_client()
+    if not client:
+        return False
+    try:
+        client.table("chat_messages").delete().eq("project_id", project_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete chat history for {project_id}: {e}")
         return False
 
 

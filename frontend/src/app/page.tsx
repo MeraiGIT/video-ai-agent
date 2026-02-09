@@ -1,11 +1,17 @@
 "use client";
 
+import { Suspense, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 import TopicForm from "@/components/TopicForm";
 import ChatView from "@/components/chat/ChatView";
 import PipelineSidebar from "@/components/pipeline/PipelineSidebar";
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const resumeProjectId = searchParams.get("resume");
+  const resumeTriggered = useRef(false);
+
   const {
     chatItems,
     currentProgress,
@@ -19,12 +25,21 @@ export default function Home() {
     approve,
     modify,
     regenerate,
+    resumeFromProject,
     reset,
   } = useSession();
 
+  // Auto-resume if ?resume=projectId is in the URL
+  useEffect(() => {
+    if (resumeProjectId && !resumeTriggered.current) {
+      resumeTriggered.current = true;
+      resumeFromProject(resumeProjectId);
+    }
+  }, [resumeProjectId, resumeFromProject]);
+
   return (
     <>
-      {stage === "topic_input" ? (
+      {stage === "topic_input" && !resumeProjectId ? (
         <TopicForm onSubmit={start} />
       ) : (
         <div className="flex">
@@ -62,5 +77,13 @@ export default function Home() {
         </div>
       )}
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }

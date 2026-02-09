@@ -23,8 +23,12 @@ CREATE TABLE IF NOT EXISTS projects (
     target_platform TEXT,
     total_cost NUMERIC DEFAULT 0,
 
+    -- Session link (for resume/checkpointing)
+    session_id TEXT,
+
     -- Status tracking
-    status TEXT NOT NULL DEFAULT 'in_progress',
+    status TEXT NOT NULL DEFAULT 'in_progress'
+        CHECK (status = ANY(ARRAY['in_progress','completed','failed','abandoned'])),
     thumbnail_url TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     completed_at TIMESTAMPTZ
@@ -50,11 +54,28 @@ CREATE TABLE IF NOT EXISTS media (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- ── Chat Messages table ────────────────────────────────────────
+-- Stores SSE events for in-progress projects. Deleted on completion/abandon.
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    data JSONB NOT NULL,
+    ordinal INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ── Indexes ─────────────────────────────────────────────────────
 
 CREATE INDEX IF NOT EXISTS idx_media_project_id ON media(project_id);
+CREATE INDEX IF NOT EXISTS idx_media_stage ON media(stage);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_projects_session_id ON projects(session_id);
+CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id);
+CREATE INDEX IF NOT EXISTS idx_chat_session_ord ON chat_messages(session_id, ordinal);
 
 -- ── Storage bucket ──────────────────────────────────────────────
 -- Create a "media" bucket in Supabase Storage (public access for CDN URLs).

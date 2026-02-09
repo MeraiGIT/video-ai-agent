@@ -2,8 +2,8 @@
 
 > Updated after each implementation phase.
 
-**Last updated**: Post-Phase 9 production readiness fixes
-**Current phase**: All phases complete + production readiness fixes
+**Last updated**: Post-Phase 10 (History & Persistence System)
+**Current phase**: All phases complete + history system
 
 ---
 
@@ -21,6 +21,7 @@
 | 7 | History + Persistence | **Complete** | 7 files | Auto-save at phase boundaries, universal project schema, frontend history universal |
 | 8 | API Routes + Session Mgmt | **Complete** | 7 files | Simplified session store, expanded schemas, new artifact renderers, quality_gate SSE, selectBudget action |
 | 9 | Testing + Polish | **Complete** | 4 files | Budget enforcement, timeout protection, error message sanitization, workspace cleanup |
+| 10 | History + Persistence | **Complete** | 18 files | SqliteSaver, project creation, chat persistence, resume/abandon, pipeline-aware gallery |
 
 ---
 
@@ -38,13 +39,21 @@
 - Tavily web research, Claude creative direction with brain prompt
 - Next.js frontend with chat, pipeline sidebar, artifact renderers, budget selector, history page
 - Long-form chunking (5-min chapters)
-- Supabase project history with universal schema (optional)
+- **Persistent checkpointing** via SqliteSaver (survives server restarts)
+- **Supabase project history** — auto-created in intake, state saved at every approval boundary
+- **Chat persistence** — SSE events saved to Supabase, replayed on resume, deleted on completion/abandon
+- **Resume capability** — "Continue" button on in-progress projects, replays chat + reconnects graph
+- **Abandon flow** — marks project as abandoned, cleans up chat
+- **Pipeline-aware gallery** — media grouped by production stage (not hardcoded type)
+- **Media tracking** — each generated asset saved to Supabase with stage, model, cost
 
 ### What Needs Testing
 - Full end-to-end run with a real creative request
 - Cross-content-type testing (video, graphic design, podcast, motion graphics)
 - Long-form content (>5 min) with chapter splitting
 - Budget tier selection and enforcement through full pipeline
+- Resume flow: start project → stop → resume from history → verify chat replays
+- Completion cleanup: verify chat_messages deleted after final approval
 
 ---
 
@@ -71,4 +80,5 @@
 
 - Run first end-to-end test with a real creative request
 - Test with multiple content types (short video, graphic design, podcast)
-- Set up Supabase tables using `backend/supabase_schema.sql` (optional)
+- Test resume flow (start → stop → resume from history)
+- Test completion cleanup (chat_messages deleted after final approval)

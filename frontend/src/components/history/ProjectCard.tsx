@@ -7,15 +7,17 @@ interface Props {
   project: Project;
   onClick: () => void;
   onDelete: () => void;
+  onContinue?: () => void;
 }
 
-export default function ProjectCard({ project, onClick, onDelete }: Props) {
+export default function ProjectCard({ project, onClick, onDelete, onContinue }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const statusColors: Record<string, string> = {
     completed: "bg-green-500/20 text-green-400",
-    in_progress: "bg-yellow-500/20 text-yellow-400",
+    in_progress: "bg-blue-500/20 text-blue-400",
     failed: "bg-red-500/20 text-red-400",
+    abandoned: "bg-gray-500/20 text-gray-400",
   };
 
   const date = new Date(project.created_at).toLocaleDateString("en-US", {
@@ -84,6 +86,18 @@ export default function ProjectCard({ project, onClick, onDelete }: Props) {
             )}
           </div>
         </div>
+        {/* Continue button for in-progress projects */}
+        {project.status === "in_progress" && onContinue && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onContinue();
+            }}
+            className="mt-2 w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition"
+          >
+            Continue
+          </button>
+        )}
       </div>
 
       {/* Delete button */}

@@ -13,7 +13,7 @@ from api.schemas import (
 )
 from agent.graph import graph
 from agent.state import ProductionState
-from agent.session_store import create_session, get_session
+from agent.session_store import create_session, get_session, set_project_id
 from services import supabase_service
 from utils.file_manager import get_job_path
 
@@ -30,13 +30,50 @@ ALLOWED_UPLOAD_TYPES = {
 
 
 async def _run_graph(session_id: str, input_or_command):
-    """Run or resume the LangGraph pipeline, pushing custom events to the session queue."""
+    """Run or resume the LangGraph pipeline, pushing custom events to the session queue.
+
+    Also persists each event to Supabase chat_messages for history/resume support.
+    """
     session = get_session(session_id)
     if not session:
         return
 
     queue = session["queue"]
     config = {"configurable": {"thread_id": session_id}}
+
+    # Track project_id for chat persistence — may already be set (resume case)
+    project_id = session.get("project_id")
+    event_buffer: list[dict] = []  # buffer events emitted before project_id is known
+    ordinal = session.get("_ordinal", 0)
+
+    async def _persist_event(evt: dict):
+        """Save event to Supabase if project_id is known, otherwise buffer it."""
+        nonlocal project_id, ordinal, event_buffer
+        event_type = evt.get("event", "message")
+
+        # Check if this event reveals the project_id
+        if event_type == "project_created":
+            pid = evt.get("data", {}).get("project_id")
+            if pid:
+                project_id = pid
+                set_project_id(session_id, pid)
+                # Flush buffered events
+                for buf_evt in event_buffer:
+                    ordinal += 1
+                    supabase_service.save_chat_event(
+                        project_id, session_id, buf_evt.get("event", "message"),
+                        buf_evt.get("data", {}), ordinal,
+                    )
+                event_buffer.clear()
+
+        if project_id:
+            ordinal += 1
+            supabase_service.save_chat_event(
+                project_id, session_id, event_type,
+                evt.get("data", {}), ordinal,
+            )
+        else:
+            event_buffer.append(evt)
 
     try:
         async for chunk in graph.astream(
@@ -46,6 +83,7 @@ async def _run_graph(session_id: str, input_or_command):
         ):
             if isinstance(chunk, dict) and "event" in chunk:
                 await queue.put(chunk)
+                await _persist_event(chunk)
 
         # Check if graph is interrupted (waiting for user input)
         state = await graph.aget_state(config)
@@ -53,17 +91,20 @@ async def _run_graph(session_id: str, input_or_command):
             for task in state.tasks:
                 if task.interrupts:
                     interrupt_data = task.interrupts[0].value
-                    await queue.put({
+                    awaiting_evt = {
                         "event": "awaiting",
                         "data": interrupt_data,
-                    })
+                    }
+                    await queue.put(awaiting_evt)
+                    await _persist_event(awaiting_evt)
+                    # Store ordinal for next resume
+                    session["_ordinal"] = ordinal
                     return
 
         # Graph completed without interrupt
 
     except Exception as e:
         logger.exception(f"Graph error for session {session_id}")
-        # Provide a user-friendly error message
         error_msg = str(e)
         if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
             error_msg = "An API authentication error occurred. Please check your API keys."
@@ -73,10 +114,12 @@ async def _run_graph(session_id: str, input_or_command):
             error_msg = "A request timed out. This can happen with large generations. Please try again."
         elif len(error_msg) > 200:
             error_msg = error_msg[:200] + "..."
-        await queue.put({
-            "event": "error",
-            "data": {"message": error_msg},
-        })
+        error_evt = {"event": "error", "data": {"message": error_msg}}
+        await queue.put(error_evt)
+        await _persist_event(error_evt)
+
+    # Store ordinal for potential resume
+    session["_ordinal"] = ordinal
 
 
 @router.post("/api/sessions", response_model=CreateSessionResponse)
@@ -179,6 +222,17 @@ async def resume_session(session_id: str, body: ResumeRequest):
     resume_value = {"action": body.action}
     if body.payload:
         resume_value.update(body.payload)
+
+    # Persist the user's action to chat history
+    project_id = session.get("project_id")
+    if project_id:
+        ordinal = session.get("_ordinal", 0) + 1
+        session["_ordinal"] = ordinal
+        supabase_service.save_chat_event(
+            project_id, session_id, "user_action",
+            {"action": body.action, "payload": body.payload or {}},
+            ordinal,
+        )
 
     asyncio.create_task(_run_graph(session_id, Command(resume=resume_value)))
 
@@ -294,3 +348,87 @@ async def delete_media_item(media_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Media item not found or delete failed")
     return {"status": "deleted"}
+
+
+# ── Resume / Chat / Abandon ──────────────────────────────────
+
+
+@router.post("/api/projects/{project_id}/resume")
+async def resume_project(project_id: str):
+    """Resume an in-progress project — recreate a session using the original session_id.
+
+    The SqliteSaver checkpoint is keyed by thread_id (== session_id), so reusing
+    the same session_id lets the graph pick up exactly where it left off.
+    """
+    project = supabase_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    status = project.get("status", "")
+    if status != "in_progress":
+        raise HTTPException(status_code=400, detail=f"Cannot resume project with status '{status}'")
+
+    original_session_id = project.get("session_id")
+    if not original_session_id:
+        raise HTTPException(status_code=400, detail="Project has no linked session")
+
+    # Check if session is already active
+    existing = get_session(original_session_id)
+    if existing:
+        return {"session_id": original_session_id, "status": "already_active"}
+
+    # Create a fresh session with the original session_id so SqliteSaver matches
+    create_session(
+        session_id=original_session_id,
+        topic=project.get("topic", ""),
+        project_id=project_id,
+    )
+
+    # Load ordinal from last chat event so new events continue the sequence
+    chat_events = supabase_service.get_chat_history(project_id)
+    last_ordinal = chat_events[-1]["ordinal"] if chat_events else 0
+    session = get_session(original_session_id)
+    if session:
+        session["_ordinal"] = last_ordinal
+
+    # Re-invoke the graph — SqliteSaver will find the checkpoint and resume
+    # from the interrupt point. We send None input + empty Command to trigger
+    # the interrupted state to re-emit the awaiting event.
+    from langgraph.types import Command
+
+    config = {"configurable": {"thread_id": original_session_id}}
+    state = await graph.aget_state(config)
+
+    if state.tasks:
+        # Graph is interrupted — re-emit the awaiting event so frontend picks it up
+        for task in state.tasks:
+            if task.interrupts:
+                interrupt_data = task.interrupts[0].value
+                if session:
+                    await session["queue"].put({
+                        "event": "awaiting",
+                        "data": interrupt_data,
+                    })
+                break
+
+    return {"session_id": original_session_id, "status": "resumed"}
+
+
+@router.get("/api/projects/{project_id}/chat")
+async def get_project_chat(project_id: str):
+    """Get all saved chat events for a project (for replaying history)."""
+    events = supabase_service.get_chat_history(project_id)
+    return {"events": events}
+
+
+@router.post("/api/projects/{project_id}/abandon")
+async def abandon_project(project_id: str):
+    """Mark a project as abandoned and clean up chat history."""
+    project = supabase_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    supabase_service.update_project(project_id, {"status": "abandoned"})
+    supabase_service.delete_chat_history(project_id)
+
+    return {"status": "abandoned"}

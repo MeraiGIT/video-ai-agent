@@ -9,7 +9,7 @@ from langgraph.config import get_stream_writer
 from langgraph.types import interrupt
 
 from agent.state import ProductionState
-from services.supabase_service import save_project_state
+from services.supabase_service import save_project_state, delete_chat_history
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def run(state: ProductionState) -> dict:
         "progress_messages": ["Project delivered!"],
     }
 
-    # Final auto-save — mark project as completed
+    # Final auto-save — mark project as completed + delete chat history
     project_id = state.get("project_id")
     if project_id:
         save_project_state(project_id, {
@@ -62,5 +62,8 @@ def run(state: ProductionState) -> dict:
             **result,
             "status": "completed",
         })
+        # Clean up chat messages — no longer needed after project is complete
+        delete_chat_history(project_id)
+        logger.info("Deleted chat history for completed project %s", project_id)
 
     return result

@@ -4,6 +4,60 @@
 
 ---
 
+## Phase 10 — History + Persistence System
+
+### Added
+- **Persistent checkpointing**: SqliteSaver replaces MemorySaver — graph state survives server restarts
+- **Project creation in intake**: Supabase project record auto-created after LLM classification with session_id link
+- **Chat persistence**: Every SSE event saved to `chat_messages` table, replayed on resume, deleted on completion/abandon
+- **Resume endpoint** (`POST /api/projects/{id}/resume`): Recreates session with original session_id, SqliteSaver picks up checkpoint
+- **Chat history endpoint** (`GET /api/projects/{id}/chat`): Returns all saved events for replay
+- **Abandon endpoint** (`POST /api/projects/{id}/abandon`): Marks project abandoned + deletes chat
+- **Media tracking in production**: Each generated asset (image, video, audio) saved to Supabase with stage, model_used, cost
+- **State saves at all review boundaries**: review_assembly, review_polish, review_stage now call save_project_state()
+- **Chat cleanup on completion**: review_final deletes chat_messages after marking project completed
+- **Frontend resume flow**: `useSession.resumeFromProject()` — fetches chat history, replays into React state, reconnects SSE
+- **URL-based resume**: `/?resume=projectId` triggers auto-resume on page load
+- **Continue button**: In-progress projects show "Continue" in ProjectCard and ProjectGallery
+- **Abandon button**: ProjectGallery header shows "Abandon" for in-progress projects
+- **Pipeline-aware gallery**: Media grouped by production stage (dynamic) instead of hardcoded type
+- **MediaCard enhancements**: Shows model_used, cost, stage info per media item
+- **Status colors**: in_progress=blue, abandoned=gray badge in ProjectCard
+
+### Changed
+- `supabase_service.py`: Added `session_id` param to `create_project()`, added `get_project_by_session()`, `save_chat_event()`, `get_chat_history()`, `delete_chat_history()`
+- `session_store.py`: Added `project_id` field and `set_project_id()` function
+- `graph.py`: SqliteSaver with `sqlite3.connect()` for persistent checkpointing
+- `routes.py`: Chat persistence in `_run_graph()`, event buffering before project_id, 3 new endpoints (12 total)
+- `api.ts`: Updated Project/MediaItem types with new fields, added ChatEvent type, 3 new API functions
+- `page.tsx`: Wrapped in Suspense boundary, supports `?resume=` URL param
+- `ProjectGallery.tsx`: Pipeline-aware media grouping with stage labels, Continue/Abandon buttons
+
+### Database Migrations (Supabase)
+- `projects` table: Added columns `content_type`, `session_id`, `creative_brief`, `production_plan`, `blueprint`, `pipeline_stages`, `cost_breakdown`, `target_platform`, `total_cost`; expanded status constraint to include 'abandoned'
+- `media` table: Added columns `stage`, `model_used`, `cost`; removed restrictive type constraint
+- Created `chat_messages` table with `project_id`, `session_id`, `event_type`, `data` (JSONB), `ordinal`
+
+### Files Changed (18 files)
+- `backend/agent/graph.py` — SqliteSaver
+- `backend/agent/session_store.py` — project_id support
+- `backend/agent/nodes/intake.py` — create_project() call
+- `backend/agent/nodes/produce.py` — create_media_record() calls
+- `backend/agent/nodes/review_assembly.py` — save_project_state()
+- `backend/agent/nodes/review_polish.py` — save_project_state()
+- `backend/agent/nodes/review_stage.py` — save_project_state()
+- `backend/agent/nodes/review_final.py` — delete_chat_history()
+- `backend/services/supabase_service.py` — chat CRUD, session_id support
+- `backend/api/routes.py` — chat persistence, 3 new endpoints
+- `frontend/src/lib/api.ts` — new types + API functions
+- `frontend/src/hooks/useSession.ts` — resumeFromProject()
+- `frontend/src/app/page.tsx` — Suspense + ?resume= support
+- `frontend/src/components/history/ProjectCard.tsx` — Continue button
+- `frontend/src/app/history/page.tsx` — Continue/Abandon handlers
+- `frontend/src/components/history/ProjectGallery.tsx` — pipeline-aware gallery
+
+---
+
 ## [Unreleased] — Planning Phase
 
 ### Added

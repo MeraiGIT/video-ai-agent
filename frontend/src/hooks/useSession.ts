@@ -10,7 +10,14 @@ import type {
   PipelineStage,
   CostTracking,
 } from "@/lib/types";
-import { createSession, resumeSession, getEventStreamUrl } from "@/lib/api";
+import {
+  createSession,
+  resumeSession,
+  getEventStreamUrl,
+  resumeProject,
+  getProjectChat,
+} from "@/lib/api";
+import type { ChatEvent } from "@/lib/api";
 
 let itemIdCounter = 0;
 function nextId(): string {
@@ -210,6 +217,81 @@ export function useSession() {
     [sessionId, addChatItem]
   );
 
+  const resumeFromProject = useCallback(
+    async (projectId: string) => {
+      setIsProcessing(true);
+      setError(null);
+      setChatItems([]);
+      setAwaiting(null);
+      setCurrentProgress(null);
+      setPipelineStages([]);
+      setCostTracking({ totalCost: 0, budgetLimit: 0, breakdown: [] });
+
+      try {
+        // 1. Fetch chat history and replay into chatItems
+        const events: ChatEvent[] = await getProjectChat(projectId);
+
+        const replayed: ChatItem[] = [];
+        for (const evt of events) {
+          const data = evt.data as Record<string, unknown>;
+          if (evt.event_type === "message") {
+            const role = (data.role as string) === "user" ? "user" : "assistant";
+            replayed.push({
+              kind: "message",
+              item: {
+                id: nextId(),
+                role,
+                content: (data.content as string) || "",
+              },
+            });
+          } else if (evt.event_type === "artifact") {
+            replayed.push({
+              kind: "artifact",
+              item: {
+                id: nextId(),
+                type: (data.type || "image") as ChatArtifact["type"],
+                data,
+              },
+            });
+          } else if (evt.event_type === "user_action") {
+            const action = (data.action as string) || "";
+            const payload = data.payload as Record<string, unknown> | undefined;
+            let content = `Action: ${action}`;
+            if (action === "approve") content = "Looks good, continue!";
+            else if (action === "modify") content = (payload?.message as string) || "Modify";
+            else if (action === "select_budget") content = `Selected ${payload?.tier} budget tier`;
+            replayed.push({
+              kind: "message",
+              item: { id: nextId(), role: "user", content },
+            });
+          } else if (evt.event_type === "cost_update") {
+            setCostTracking((prev) => ({
+              totalCost: (data.total_cost as number) ?? prev.totalCost,
+              budgetLimit: (data.budget_limit as number) ?? prev.budgetLimit,
+              breakdown: (data.breakdown as CostTracking["breakdown"]) ?? prev.breakdown,
+            }));
+          } else if (evt.event_type === "pipeline_update") {
+            if (Array.isArray(data.stages)) {
+              setPipelineStages(data.stages as PipelineStage[]);
+            }
+          }
+        }
+
+        setChatItems(replayed);
+
+        // 2. Resume the project to get session_id and reconnect
+        const { session_id: sid } = await resumeProject(projectId);
+        setSessionId(sid);
+        setStage("interview"); // something other than topic_input so chat shows
+        connectSSE(sid);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to resume project");
+        setIsProcessing(false);
+      }
+    },
+    [connectSSE]
+  );
+
   const reset = useCallback(() => {
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
@@ -239,6 +321,7 @@ export function useSession() {
     modify,
     regenerate,
     selectBudget,
+    resumeFromProject,
     reset,
   };
 }
