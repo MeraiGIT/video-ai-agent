@@ -9,10 +9,9 @@ The produce phase has a quality gate supervisor loop.
 """
 
 import os
-import sqlite3
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
 
 from agent.state import ProductionState
 from agent.nodes import (
@@ -180,10 +179,8 @@ def build_graph():
     builder.add_edge("deliver", "review_final")
     builder.add_edge("review_final", END)
 
-    # Compile with persistent checkpointer for interrupt support + resume
-    checkpoint_path = os.path.join(os.path.dirname(__file__), "..", "checkpoints.db")
-    conn = sqlite3.connect(checkpoint_path, check_same_thread=False)
-    checkpointer = SqliteSaver(conn)
+    # Compile with in-memory checkpointer (supports both sync and async)
+    checkpointer = MemorySaver()
     return builder.compile(checkpointer=checkpointer)
 
 
